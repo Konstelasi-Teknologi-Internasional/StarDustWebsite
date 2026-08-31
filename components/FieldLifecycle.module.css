@@ -1,0 +1,211 @@
+.demo { margin-top: 40px; }
+
+.timeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+@media (max-width: 940px) {
+  .timeline { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 560px) {
+  .timeline { grid-template-columns: 1fr; }
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  text-align: left;
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: border-color 200ms var(--ease), background 200ms var(--ease),
+              color 200ms var(--ease);
+}
+.step:hover { border-color: var(--border-bright); }
+
+.stepDone { color: var(--text-dim); border-color: #2fd4bd33; }
+.stepOn {
+  color: var(--text);
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(124, 140, 255, 0.12), transparent);
+}
+
+.stepIndex {
+  flex: none;
+  width: 21px; height: 21px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-family: var(--mono);
+  font-size: 11px;
+  opacity: 0.75;
+}
+.stepOn .stepIndex {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #0a0c14;
+  opacity: 1;
+}
+.stepDone .stepIndex { border-color: var(--indexed); color: var(--indexed); }
+
+.stepText { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.stepText strong { font-size: 12.5px; font-weight: 560; line-height: 1.35; }
+.stepText em {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.blurb {
+  margin-top: 16px;
+  margin-bottom: 20px;
+  font-size: 14.5px;
+  color: var(--text-dim);
+  max-width: 76ch;
+  min-height: 46px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+@media (max-width: 940px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.state { display: flex; flex-direction: column; }
+.stateBody { padding: 16px; display: flex; flex-direction: column; gap: 13px; }
+
+.readRow {
+  display: grid;
+  grid-template-columns: 92px auto 1fr;
+  gap: 11px;
+  align-items: center;
+}
+@media (max-width: 560px) {
+  .readRow { grid-template-columns: 1fr; gap: 5px; }
+}
+
+.readLabel {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+.readNote { font-size: 12px; color: var(--text-faint); }
+
+.divider { height: 1px; background: var(--border); margin: 3px 0; }
+
+.progressBlock {
+  margin-top: 6px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.progressTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cursorValue {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.progressTrack {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: linear-gradient(90deg, #f0b42966, var(--pending));
+  transition: width 200ms linear, background 400ms var(--ease);
+}
+.progressDone { background: linear-gradient(90deg, #2fd4bd66, var(--indexed)); }
+
+.progressNote { font-size: 11.5px; color: var(--text-faint); }
+
+/* ---------- event log ---------- */
+
+.logPanel { display: flex; flex-direction: column; overflow: hidden; }
+
+.log {
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.85;
+  height: 268px;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  background: #070a10;
+}
+
+.logLine {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  animation: slideIn 260ms var(--ease) both;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.logBrace  { color: var(--text-faint); }
+.logKey    { color: var(--accent); }
+.logEvent  { color: var(--indexed); }
+.logDetail { color: var(--text-dim); }
+
+/* ---------- the call ---------- */
+
+.callPanel { margin-top: 20px; transition: border-color 400ms var(--ease); }
+.callOk  { border-color: #2fd4bd3d; }
+.callBad { border-color: #ff6b813d; }
+
+.callBody {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+  padding: 16px;
+  align-items: center;
+}
+@media (max-width: 780px) {
+  .callBody { grid-template-columns: 1fr; }
+}
+
+.callCode {
+  margin: 0;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #080b12;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  overflow-x: auto;
+}
+
+.callResult { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.callResult p { font-size: 13px; color: var(--text-dim); }

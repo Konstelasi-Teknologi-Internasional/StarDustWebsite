@@ -1,0 +1,29 @@
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-top: 40px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.card { overflow: hidden; }
+.good { border-color: #2fd4bd2e; }
+.bad  { border-color: #ff6b812e; }
+
+.list {
+  margin: 0;
+  padding: 16px 18px 18px 34px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  font-size: 14px;
+  line-height: 1.62;
+  color: var(--text-dim);
+}
+
+.list li::marker { color: var(--text-faint); }
+.good .list li::marker { color: var(--indexed); }
+.bad  .list li::marker { color: var(--danger); }

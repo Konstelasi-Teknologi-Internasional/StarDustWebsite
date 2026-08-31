@@ -1,0 +1,119 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  padding-top: clamp(56px, 8vw, 96px);
+  padding-bottom: clamp(56px, 7vw, 88px);
+}
+
+.inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  /* Not inherited: body's 1.65 line-height wraps the 12px glyphs in a ~20px
+     line box, and centring that box leaves the text riding high in the pill. */
+  line-height: 1;
+  color: var(--text-dim);
+  padding: 9px 13px;
+  border: 1px solid var(--border-bright);
+  border-radius: 999px;
+  background: rgba(16, 20, 32, 0.7);
+  text-decoration: none;
+}
+.badge:hover { color: var(--text); text-decoration: none; border-color: #3d4a68; }
+
+.title {
+  margin-top: 26px;
+  font-size: clamp(34px, 6.2vw, 66px);
+  letter-spacing: -0.032em;
+  line-height: 1.05;
+  max-width: 17ch;
+}
+
+.grad {
+  background: linear-gradient(100deg, #a9b4ff 0%, #7c8cff 42%, #2fd4bd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.lede {
+  margin-top: 24px;
+  max-width: 62ch;
+  font-size: clamp(16px, 1.6vw, 18.5px);
+  color: var(--text-dim);
+}
+
+.ctas {
+  margin-top: 34px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+}
+
+.install {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 13.5px;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-bright);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 140ms var(--ease), background 140ms var(--ease);
+}
+.install:hover { border-color: #3d4a68; background: var(--panel-2); }
+
+.prompt { color: var(--indexed); }
+
+.copyHint {
+  font-size: 11px;
+  color: var(--text-faint);
+  border-left: 1px solid var(--border);
+  padding-left: 10px;
+  min-width: 46px;
+  text-align: left;
+}
+
+.code {
+  margin-top: 44px;
+  width: 100%;
+  max-width: 720px;
+  text-align: left;
+  box-shadow: 0 26px 70px -32px rgba(0, 0, 0, 0.95);
+}
+
+.scroll {
+  margin-top: 44px;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--text-faint);
+  text-decoration: none;
+  letter-spacing: 0.04em;
+}
+.scroll:hover { color: var(--text-dim); text-decoration: none; }
+
+.arrow { animation: bob 2.1s ease-in-out infinite; }
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(4px); }
+}

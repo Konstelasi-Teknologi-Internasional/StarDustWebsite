@@ -1,0 +1,34 @@
+.wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* Fade the field out before it reaches the section edge, so the border
+     below reads as a hard line rather than a smudge. */
+  mask-image: linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, #000 55%, transparent 100%);
+}
+
+.glow {
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  width: min(1100px, 120vw);
+  height: 780px;
+  transform: translateX(-50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(124, 140, 255, 0.16) 0%,
+    rgba(47, 212, 189, 0.06) 38%,
+    transparent 68%
+  );
+  filter: blur(6px);
+}

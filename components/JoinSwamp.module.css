@@ -1,0 +1,165 @@
+.demo { margin-top: 40px; }
+
+.control {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  margin-bottom: 20px;
+}
+
+.sliderLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+.sliderLabel strong {
+  font-size: 20px;
+  color: var(--text);
+  letter-spacing: 0;
+  min-width: 1ch;
+}
+
+.slider {
+  flex: 1;
+  min-width: 180px;
+  accent-color: var(--accent);
+  height: 4px;
+  cursor: pointer;
+}
+
+.corpus {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 940px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.side { display: flex; flex-direction: column; overflow: hidden; }
+.bad  { border-color: #ff6b8126; }
+.good { border-color: #2fd4bd26; }
+
+.sideBody {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  flex: 1;
+}
+
+.sql {
+  margin: 0;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: #080b12;
+  font-size: 11.5px;
+  line-height: 1.62;
+  color: var(--text-dim);
+  overflow-x: auto;
+  /* Both panels grow to the taller SQL so the metrics stay aligned across
+     the fold as the join list lengthens. */
+  min-height: 232px;
+  white-space: pre;
+}
+
+.metrics { display: flex; flex-direction: column; gap: 9px; margin-top: auto; }
+
+.metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.metricLabel {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.metricValue {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+.valueBad  { color: var(--danger); }
+.valueGood { color: var(--indexed); }
+
+.barTrack {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 700ms var(--ease);
+}
+.barBad  { background: linear-gradient(90deg, #ff6b8155, #ff6b81); }
+.barGood { background: linear-gradient(90deg, #2fd4bd55, #2fd4bd); }
+
+.metricNote {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
+.metricNote em { color: var(--text-dim); font-style: italic; }
+
+.summary {
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+}
+
+.factor {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  white-space: nowrap;
+}
+.factor strong {
+  font-family: var(--mono);
+  font-size: 26px;
+  color: var(--danger);
+  font-variant-numeric: tabular-nums;
+}
+.factor span { font-size: 13px; color: var(--text-dim); }
+
+.disclaimer {
+  flex: 1;
+  min-width: 260px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-faint);
+}
