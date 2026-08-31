@@ -19,16 +19,16 @@ const ACTS: { title: string; actor: string; blurb: string }[] = [
       'The call recorded an intention and came back immediately. Nothing has been indexed. This is the state people file bugs about.',
   },
   {
-    title: 'the Watcher provisions capacity',
+    title: 'the Watcher provisions a page',
     actor: 'Watcher · singleton',
     blurb:
-      'A page with a free int slot did not exist, so one is provisioned and indexed, and the slot is reserved for the field — as backfilling, not ready.',
+      'No page had a free indexed int slot, so the Watcher provisions and indexes one. It provisions capacity and nothing else — claiming a slot is not its job, so the field is still unmapped when this tick ends.',
   },
   {
-    title: 'the Reconciler copies the values',
+    title: 'the Reconciler claims the slot and backfills',
     actor: 'Reconciler · multi-worker',
     blurb:
-      'Every existing entry has to have its value copied out of JSON and into the slot column, in chunks, with a checkpoint after each one.',
+      'The Reconciler reserves the slot as backfilling, then copies every existing entry\u2019s value out of JSON into the slot column in chunks, checkpointing after each one.',
   },
   {
     title: 'the slot flips to ready',
@@ -67,18 +67,24 @@ export default function FieldLifecycle() {
       } else if (next === 1) {
         setCursor(0);
         push(
-          line('poll_started', 'daemon=watcher'),
+          line('poll_started', 'source=watcher'),
           line('provision_started', 'reason=unmapped_filterable_field'),
           line('page_provisioned', 'page=2 indexed_slots=i_int_01,i_int_02'),
-          line('slot_reserved', 'field_id=17 slot=i_int_01 status=backfilling'),
+          line('provision_complete', 'source=watcher pages_added=1'),
         );
       } else if (next === 2) {
-        push(line('chunk_claimed', `job=retype_field_17 cursor=0 chunk=${CHUNK}`));
+        push(
+          line('slot_reserved', 'source=reconciler field_id=17 slot=i_int_01 status=backfilling'),
+          line('chunk_claimed', 'source=reconciler queue=retype_backfill field_id=17'),
+        );
       } else if (next === 3) {
         setCursor(TOTAL_ROWS);
         push(
+          line(
+            'chunk_complete',
+            `queue=retype_backfill field_id=17 rows_processed=${CHUNK} final_chunk=true`,
+          ),
           line('promote_to_ready', 'field_id=17 slot=i_int_01 status=ready'),
-          line('chunk_complete', `job=retype_field_17 rows=${TOTAL_ROWS}`),
         );
       }
     },
@@ -130,7 +136,13 @@ export default function FieldLifecycle() {
   useEffect(() => {
     if (act !== 2 || cursor === 0) return;
     if (cursor >= TOTAL_ROWS) goto(3);
-    else push(line('chunk_written', `job=retype_field_17 cursor=${cursor} rows=${CHUNK}`));
+    else
+      push(
+        line(
+          'chunk_complete',
+          `queue=retype_backfill field_id=17 rows_processed=${CHUNK} final_chunk=false`,
+        ),
+      );
   }, [cursor, act, goto, push]);
 
   useEffect(() => {
@@ -139,7 +151,7 @@ export default function FieldLifecycle() {
   }, [log]);
 
   const indexed = act === 3;
-  const slotStatus = act === 0 ? null : act === 3 ? 'ready' : 'backfilling';
+  const slotStatus = act <= 1 ? null : act === 3 ? 'ready' : 'backfilling';
   const pct = Math.round((cursor / TOTAL_ROWS) * 100);
 
   const readout = useMemo(
@@ -180,6 +192,15 @@ export default function FieldLifecycle() {
 
       <p className={styles.blurb}>{ACTS[act].blurb}</p>
 
+      <p className={styles.caveat}>
+        This is the cold-start path, where no page yet has a free indexed slot of the
+        right type. When capacity already exists, the slot is reserved inside the
+        transaction that <code>promoteFieldToFilterable()</code> itself runs — acts 1
+        and 2 collapse, the Watcher never gets involved, and the field goes straight to{' '}
+        <code>backfilling</code>. Either way the window below is real: a{' '}
+        <code>backfilling</code> slot is not queryable.
+      </p>
+
       <div className={styles.grid}>
         <div className={`panel ${styles.state}`}>
           <div className="panel-head">
@@ -217,8 +238,10 @@ export default function FieldLifecycle() {
                 {slotStatus === 'ready'
                   ? 'live and queryable'
                   : slotStatus
-                    ? 'reserved, but pre-flight still rejects it'
-                    : 'the Watcher has not run yet'}
+                    ? 'reserved, but pre-flight still rejects backfilling'
+                    : act === 1
+                      ? 'capacity exists now — but nothing has claimed it yet'
+                      : 'no page had a free indexed int slot'}
               </span>
             </div>
 

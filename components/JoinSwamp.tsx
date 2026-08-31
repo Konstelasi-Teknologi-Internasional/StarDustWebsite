@@ -38,9 +38,23 @@ function eavSql(n: number): string {
   return `SELECT e.id\n  FROM entry e\n${joins}\n WHERE e.tenant_id = ?\n   AND ${preds}`;
 }
 
+/**
+ * Query one of the two-query bounded read. Every leaf that resolves to the
+ * same page shares one alias, which is why the join count does not move with
+ * n — the compiler allocates `p0`, `p1`, … per *page*, not per predicate.
+ */
 function starDustSql(n: number): string {
-  const preds = Array.from({ length: n }, (_, i) => `p.i_str_0${i + 1} = ?`).join('\n   AND ');
-  return `SELECT d.id, d.fields\n  FROM entry_data d\n  JOIN entry_slots_page_1 p ON p.entry_id = d.id\n WHERE d.tenant_id = ?\n   AND ${preds}\n ORDER BY d.id LIMIT ?`;
+  const preds = Array.from({ length: n }, (_, i) => `p0.i_str_0${i + 1} = ?`).join('\n   AND ');
+  return (
+    `SELECT entry_data.id FROM entry_data\n` +
+    `INNER JOIN entry_slots_page_1 p0\n` +
+    `        ON p0.entry_id  = entry_data.id\n` +
+    `       AND p0.tenant_id = entry_data.tenant_id\n` +
+    ` WHERE entry_data.tenant_id = ?\n` +
+    `   AND ${preds}\n` +
+    ` ORDER BY entry_data.id LIMIT ?\n\n` +
+    `-- then one more query to materialise those ids`
+  );
 }
 
 function Bar({ value, max, tone }: { value: number; max: number; tone: 'bad' | 'good' }) {

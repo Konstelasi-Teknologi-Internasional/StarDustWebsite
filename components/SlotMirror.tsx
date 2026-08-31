@@ -377,11 +377,20 @@ export default function SlotMirror() {
                   </span>
                 </div>
                 <pre className={styles.sql}>
-{`SELECT d.id, d.fields
-  FROM entry_data d
-  JOIN entry_slots_page_1 p ON p.entry_id = d.id
- WHERE d.tenant_id = 1
-   AND p.${targetSlot} ${target.type === 'int' ? '> 100' : "= 'Acme'"}   -- ← index range`}
+{`-- 1. discovery: ids only, bounded by LIMIT
+SELECT entry_data.id FROM entry_data
+INNER JOIN entry_slots_page_1 p0
+        ON p0.entry_id  = entry_data.id
+       AND p0.tenant_id = entry_data.tenant_id
+ WHERE entry_data.tenant_id = ?
+   AND p0.${targetSlot} ${target.type === 'int' ? '>' : '='} ?          -- ← index range
+ ORDER BY entry_data.id LIMIT ?
+
+-- 2. materialise only those ids
+SELECT id, tenant_id, model_id, created_at, fields
+  FROM entry_data
+ WHERE entry_data.id IN (?, ?, …)
+   AND entry_data.tenant_id = ?`}
                 </pre>
               </>
             ) : target.filterable ? (
