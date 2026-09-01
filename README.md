@@ -14,6 +14,35 @@ interactive demonstrations rather than prose:
 | `components/FieldLifecycle.tsx` | The promotion window: `promoteFieldToFilterable()` returns → the Watcher provisions a page → the Reconciler claims the slot and backfills → it flips to `ready`, with a live NDJSON event stream. Mirrors `examples/01-field-lifecycle.php` in the engine repo. |
 | `components/DaemonBoard.tsx` | All four daemons running on their own poll periods, coordinating only through shared MySQL state. |
 
+## The playground
+
+`/playground` ([`app/playground/`](app/playground/),
+[`components/playground/`](components/playground/)) is a second route: one
+continuous world where the schema you define produces the rows you write, which
+produce the index the daemons build. Unlike the four sections above, which each
+reset on their own and share nothing, every part of it reads the state the
+previous part produced — so it needs a persistent world with a clock, which is
+what [`lib/sim/`](lib/sim/) is.
+
+**It is a simulation and says so on the page.** There is no Node runtime, no PHP
+and no MySQL in production, so it cannot run the real engine. The rules were
+written by hand to match; where the two disagree, the engine is right.
+
+Two conventions hold that honesty in place, and both are cheaper to keep than to
+restore:
+
+- **Engine semantics live only in `lib/sim/`.** No component encodes a rule about
+  slots, statuses or daemons. If a component needs to know whether a filter would
+  be rejected, it asks the core.
+- **Event names are a closed union.** [`lib/sim/events.ts`](lib/sim/events.ts)
+  mirrors the engine's own closed vocabulary, so an invented event name is a
+  `npm run typecheck` failure rather than a plausible-looking string in a log
+  panel. It is a checked-in copy — the engine is a separate repository and
+  nothing here can verify it — so when the engine adds an event, add it there in
+  the same change.
+
+Build sequencing lives in [`PLAYGROUND_ROADMAP.md`](PLAYGROUND_ROADMAP.md).
+
 ## Develop
 
 ```bash

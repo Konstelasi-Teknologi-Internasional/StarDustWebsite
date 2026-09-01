@@ -45,6 +45,10 @@
 }
 .links a:hover { color: var(--text); text-decoration: none; }
 
+/* The one entry that is a route rather than an anchor, marked as such. */
+.links a.keep { color: var(--accent); }
+.links a.keep:hover { color: #b9a8ff; }
+
 .gh {
   font-size: 13.5px;
   color: var(--text-dim);
@@ -56,7 +60,11 @@
 }
 .gh:hover { color: var(--text); border-color: var(--border-bright); text-decoration: none; }
 
+/* Narrow screens drop the section anchors, which are only ever shortcuts to
+   somewhere further down the page you are already on. The playground is a
+   different route, so hiding it would make it unreachable rather than merely
+   inconvenient — it stays. */
 @media (max-width: 900px) {
-  .links { display: none; }
-  .gh { margin-left: auto; }
+  .links { gap: 14px; }
+  .links a:not(.keep) { display: none; }
 }

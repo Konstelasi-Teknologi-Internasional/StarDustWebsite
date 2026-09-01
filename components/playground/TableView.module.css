@@ -1,0 +1,48 @@
+.table { overflow: hidden; }
+
+.name { font-family: var(--mono); color: var(--text); }
+
+.body { padding: 12px 14px 14px; overflow-x: auto; }
+
+.grid { min-width: max-content; }
+
+.head,
+.row {
+  display: grid;
+  gap: 12px;
+  align-items: baseline;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.head {
+  color: var(--text-faint);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.row {
+  padding: 9px 0;
+  color: var(--text);
+  border-bottom: 1px solid rgba(var(--panel-rgb), 1);
+}
+.row:last-child { border-bottom: none; }
+
+.cell { min-width: 0; overflow-wrap: anywhere; }
+
+.end { text-align: right; }
+
+/* An empty table is a lesson in several of these sections, not a failure —
+   so it gets a written reason rather than a shrug. */
+.empty {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-faint);
+  font-size: 13px;
+  text-align: center;
+}

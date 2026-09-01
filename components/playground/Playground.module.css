@@ -1,0 +1,35 @@
+.main {
+  padding-top: clamp(88px, 11vw, 132px);
+  padding-bottom: clamp(64px, 9vw, 116px);
+}
+
+.head { margin-bottom: 26px; }
+
+.title {
+  font-size: clamp(28px, 4vw, 44px);
+  max-width: 20ch;
+  margin-bottom: 16px;
+}
+
+.reducedNote {
+  margin-top: 14px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+}
+.reducedNote strong { color: var(--text); font-family: var(--mono); }
+
+.stage {
+  margin-top: 34px;
+  padding-top: 30px;
+  border-top: 1px solid var(--border);
+}
+
+.stageTitle { font-size: clamp(20px, 2.4vw, 27px); }
+
+.stageLede {
+  margin-top: 12px;
+  max-width: 72ch;
+  color: var(--text-dim);
+  font-size: 16px;
+}
+.stageLede code { font-size: 14px; color: var(--accent); }
