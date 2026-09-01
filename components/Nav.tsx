@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { REPO } from '@/lib/links';
+import OrbitMark from './OrbitMark';
 import styles from './Nav.module.css';
 
 const LINKS = [
@@ -26,7 +27,7 @@ export default function Nav() {
     <header className={`${styles.bar} ${stuck ? styles.stuck : ''}`}>
       <div className={`shell ${styles.inner}`}>
         <a href="#top" className={styles.brand}>
-          <span className={styles.mark} aria-hidden="true" />
+          <OrbitMark size={20} />
           StarDust
         </a>
 

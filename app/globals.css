@@ -50,6 +50,13 @@
   --danger:      #ff6b81;
   --danger-soft: #ff6b811f;
 
+  /* Konstelasi's own icon-treatment gradient (sampled from their live site,
+     not derived from the rotation above) — reserved for the brand mark
+     (OrbitMark) rather than general UI, so it stays a deliberate, rare
+     accent instead of diluting into every gradient on the page. */
+  --brand-a: #7b1fa2;
+  --brand-b: #311b92;
+
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo,
           Consolas, "Liberation Mono", monospace;
   --sans: var(--font-poppins), system-ui, -apple-system, "Segoe UI", Roboto,

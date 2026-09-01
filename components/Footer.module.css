@@ -22,13 +22,6 @@
   font-size: 15.5px;
 }
 
-.mark {
-  width: 10px; height: 10px;
-  border-radius: 2px;
-  background: linear-gradient(135deg, var(--accent), var(--indexed));
-  transform: rotate(45deg);
-}
-
 .tag {
   margin-top: 12px;
   font-size: 13px;
