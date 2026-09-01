@@ -1,6 +1,6 @@
 # StarDust — website
 
-Landing page for [StarDust](https://github.com/damarbob/stardust), a MySQL-native
+Landing page for [StarDust](https://github.com/damarbob/StarDust), a MySQL-native
 Vertical Schema Partitioning engine for dynamic data models.
 
 The engine is abstract — most of what makes it interesting happens in background
@@ -11,7 +11,7 @@ interactive demonstrations rather than prose:
 | :-- | :-- |
 | `components/SlotMirror.tsx` | Edit a payload, flip fields between filterable and JSON-only, and watch values mirror into typed indexed slot columns — then see what a filter on each field actually costs. |
 | `components/JoinSwamp.tsx` | An illustrative cost model of EAV join fan-out against StarDust's fixed single-page join, as the number of filter conditions grows. |
-| `components/FieldLifecycle.tsx` | The promotion window: `promoteFieldToFilterable()` returns → Watcher provisions → Reconciler backfills → the slot flips to `ready`, with a live NDJSON event stream. Mirrors `examples/01-field-lifecycle.php` in the engine repo. |
+| `components/FieldLifecycle.tsx` | The promotion window: `promoteFieldToFilterable()` returns → the Watcher provisions a page → the Reconciler claims the slot and backfills → it flips to `ready`, with a live NDJSON event stream. Mirrors `examples/01-field-lifecycle.php` in the engine repo. |
 | `components/DaemonBoard.tsx` | All four daemons running on their own poll periods, coordinating only through shared MySQL state. |
 
 ## Develop
@@ -30,15 +30,45 @@ the build overwrites the running server's webpack runtime, which turns every
 request into a `MODULE_NOT_FOUND` 500. Stop the dev server first, or delete
 `.next/` and restart it if you already have.
 
-## Deploy
+## Build
 
-`npm run build` produces a fully static `out/` — no Node runtime in production.
-[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) publishes it to
-GitHub Pages on every push to `main`.
+There is **no Node runtime in production**. `npm run build` produces `out/`, a
+self-contained folder of static files that any static host can serve.
 
-The workflow sets `NEXT_PUBLIC_BASE_PATH=/StarDustWebsite` because the default
-Pages URL is a subpath. **When a custom domain is attached, drop that env var**
-or every asset URL keeps the now-wrong prefix.
+```bash
+npm ci
+npm run build          # → out/
+```
+
+Publishing is putting the **contents** of `out/` at the web root.
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) typechecks and builds on
+every push and attaches `out/` as a downloadable **`site`** artifact, so a
+release never requires building locally. It deliberately does not deploy —
+that would mean putting host credentials in repository secrets, which is a
+decision to make on purpose rather than inherit from a template.
+
+Three settings exist for the sake of static hosting, and are easy to break by
+tidying:
+
+- **`trailingSlash: true`** in [`next.config.mjs`](next.config.mjs) emits each
+  route as `<route>/index.html`, which a plain file server resolves through its
+  normal index lookup. Turn it off and routes 404 unless the visitor types
+  `.html`.
+- **No `basePath`** — the site is served from the domain root. Set one only if
+  it moves into a subdirectory.
+- **[`public/.htaccess`](public/.htaccess)** ships alongside the build, since
+  Next copies dotfiles from `public/`. On Apache-family hosts it wires up the
+  exported 404 page, forces HTTPS, and caches the content-hashed
+  `_next/static/` bundles for a year while holding HTML at `must-revalidate` —
+  that pairing is what makes a redeploy take effect immediately rather than
+  after a cache expiry. Other hosts ignore the file; configure the equivalent
+  there.
+
+`SITE_URL` in [`lib/links.ts`](lib/links.ts) is the canonical origin used for
+the canonical link and Open Graph tags. Those must be absolute, and a static
+export has no request to derive a host from, so it is stated there and nowhere
+else — update that one constant if the domain changes.
 
 ## Conventions
 

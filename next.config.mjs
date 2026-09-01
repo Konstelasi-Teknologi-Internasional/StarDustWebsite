@@ -1,17 +1,19 @@
 /**
- * Static export, so the whole site is a folder of files that GitHub Pages
- * (or any bucket) can serve with no Node runtime.
+ * Static export: `npm run build` produces `out/`, a folder of plain files that
+ * any static host can serve. Nothing here may depend on a Node runtime.
  *
- * NEXT_PUBLIC_BASE_PATH is set by the Pages workflow to "/StarDustWebsite"
- * when publishing to the default github.io subpath. Leave it unset for a
- * custom domain or for local `next dev`.
+ * `trailingSlash` is functional rather than cosmetic. It emits every route as
+ * `<route>/index.html`, which is what lets a plain file server resolve a route
+ * through its normal index lookup; without it a route emits as `<route>.html`
+ * and only resolves for visitors who type the extension themselves.
+ *
+ * There is deliberately no `basePath`: the site is served from the domain
+ * root. Set one only if it ever moves into a subdirectory.
  */
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? '';
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
-  basePath,
   trailingSlash: true,
   images: { unoptimized: true },
   reactStrictMode: true,

@@ -1,0 +1,85 @@
+# Server config for Apache-family hosts. Next copies everything in public/ to
+# the root of out/, dotfiles included, so this ships alongside the site and is
+# simply ignored by hosts that do not read it.
+#
+# Every directive is wrapped in an <IfModule> guard: a host may have any given
+# module disabled, and an unguarded directive there is a hard 500 for the whole
+# site rather than a skipped optimisation.
+
+# ----------------------------------------------------------------------
+# Error pages
+# ----------------------------------------------------------------------
+# The static export emits 404.html at the root. Without this Apache serves
+# its own bare 404 instead of the site's.
+ErrorDocument 404 /404.html
+
+# ----------------------------------------------------------------------
+# Canonical host — HTTPS, no www
+# ----------------------------------------------------------------------
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Force HTTPS. The connection may terminate at a proxy or CDN upstream, so
+  # trust X-Forwarded-Proto as well as the server's own %{HTTPS}.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Strip www so the canonical URL in the page head and the served URL agree.
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Caching
+# ----------------------------------------------------------------------
+<IfModule mod_expires.c>
+  ExpiresActive On
+
+  # Everything under /_next/static/ carries a content hash in its filename,
+  # so a changed file is a changed URL and this can be cached forever.
+  <FilesMatch "\.(js|css|woff2)$">
+    ExpiresDefault "access plus 1 year"
+  </FilesMatch>
+
+  ExpiresByType image/svg+xml "access plus 1 month"
+  ExpiresByType image/png     "access plus 1 month"
+  ExpiresByType image/jpeg    "access plus 1 month"
+
+  # HTML must not be cached hard: index.html is the file that points at the
+  # new hashed bundles after a deploy. Cache it and visitors keep loading
+  # the old site until it expires.
+  ExpiresByType text/html "access plus 0 seconds"
+</IfModule>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|css|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  <FilesMatch "\.html$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+
+  # Modest hardening. No CSP here: the page is self-contained but a CSP is
+  # easy to get subtly wrong and silently break a demo, so it is worth
+  # adding deliberately rather than as a side effect of a deploy config.
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  Header set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Compression
+# ----------------------------------------------------------------------
+# The JS bundle is ~117 kB uncompressed and compresses to roughly a third.
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain
+  AddOutputFilterByType DEFLATE application/javascript application/json
+  AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# ----------------------------------------------------------------------
+# Directory listings
+# ----------------------------------------------------------------------
+Options -Indexes

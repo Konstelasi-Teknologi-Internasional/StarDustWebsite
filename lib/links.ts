@@ -10,6 +10,15 @@
  * Casing matters: GitHub redirects the wrong case, but the canonical repo is
  * `damarbob/StarDust`. Packagist names are lowercase by spec.
  */
+/**
+ * The site's own canonical origin, used for the canonical link and the Open
+ * Graph tags. Those must be absolute, and a static export has no request to
+ * derive a host from, so it is stated once here. It lives in this module
+ * rather than in `app/layout.tsx` because Next validates that file's exports
+ * and rejects extra ones.
+ */
+export const SITE_URL = 'https://stardust.konstelasi.co.id';
+
 export const REPO = 'https://github.com/damarbob/StarDust';
 
 export const DOCS = `${REPO}#readme`;

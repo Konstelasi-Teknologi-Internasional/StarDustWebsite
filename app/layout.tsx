@@ -1,12 +1,16 @@
 import type { Metadata, Viewport } from 'next';
+import { SITE_URL } from '@/lib/links';
 import './globals.css';
 
 const description =
   'Schemaless dynamic fields, queried at native SQL index speed — no separate ' +
   'search cluster, no EAV join swamp. A framework-neutral PHP engine for MySQL 8.';
 
+const title = 'StarDust — dynamic fields at native SQL index speed';
+
 export const metadata: Metadata = {
-  title: 'StarDust — dynamic fields at native SQL index speed',
+  metadataBase: new URL(SITE_URL),
+  title,
   description,
   applicationName: 'StarDust',
   keywords: [
@@ -14,10 +18,14 @@ export const metadata: Metadata = {
     'vertical schema partitioning', 'schemaless', 'indexed JSON',
   ],
   authors: [{ name: 'Konstelasi Teknologi Internasional' }],
+  alternates: { canonical: '/' },
   openGraph: {
-    title: 'StarDust — dynamic fields at native SQL index speed',
+    title,
     description,
     type: 'website',
+    url: '/',
+    siteName: 'StarDust',
+    locale: 'en_US',
   },
   twitter: { card: 'summary_large_image', title: 'StarDust', description },
 };
