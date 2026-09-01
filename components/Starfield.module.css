@@ -26,8 +26,8 @@
   transform: translateX(-50%);
   background: radial-gradient(
     ellipse at center,
-    rgba(124, 140, 255, 0.16) 0%,
-    rgba(47, 212, 189, 0.06) 38%,
+    rgba(var(--accent-rgb), 0.16) 0%,
+    rgba(var(--indexed-rgb), 0.06) 38%,
     transparent 68%
   );
   filter: blur(6px);

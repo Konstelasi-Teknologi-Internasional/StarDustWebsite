@@ -1,6 +1,18 @@
 import type { Metadata, Viewport } from 'next';
+import { Poppins } from 'next/font/google';
 import { SITE_URL } from '@/lib/links';
 import './globals.css';
+
+// Konstelasi's brand typeface — every text role in their Elementor kit is
+// set to Poppins. Weights cover the 500–660 cluster this codebase's own
+// font-weight declarations use (nearest-available matching handles the
+// odd values like 560/620/660); the mono stack is untouched.
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 const description =
   'Schemaless dynamic fields, queried at native SQL index speed — no separate ' +
@@ -31,13 +43,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: '#06070c',
+  themeColor: '#07060c',
   colorScheme: 'dark',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={poppins.variable}>
       <body>{children}</body>
     </html>
   );

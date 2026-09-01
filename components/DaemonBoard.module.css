@@ -32,8 +32,8 @@
   transition: border-color 320ms var(--ease), box-shadow 320ms var(--ease);
 }
 .daemonLive {
-  border-color: #7c8cff66;
-  box-shadow: 0 0 0 1px rgba(124, 140, 255, 0.12), 0 8px 30px -18px rgba(124, 140, 255, 0.7);
+  border-color: #947cff66;
+  box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 8px 30px -18px rgba(var(--accent-rgb), 0.7);
 }
 
 .daemonBody { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
@@ -48,7 +48,7 @@
 }
 .pulseOn {
   background: var(--accent);
-  box-shadow: 0 0 10px 2px rgba(124, 140, 255, 0.75);
+  box-shadow: 0 0 10px 2px rgba(var(--accent-rgb), 0.75);
 }
 
 .role { font-size: 12.5px; color: var(--text-dim); line-height: 1.55; }
@@ -68,7 +68,7 @@
 .bottom .wire { top: -20px; }
 .wireLive {
   background: var(--accent);
-  box-shadow: 0 0 8px 1px rgba(124, 140, 255, 0.65);
+  box-shadow: 0 0 8px 1px rgba(var(--accent-rgb), 0.65);
 }
 @media (max-width: 860px) {
   .wire { display: none; }
@@ -82,7 +82,7 @@
   border: 1px solid var(--border-bright);
   border-radius: var(--radius);
   background:
-    linear-gradient(180deg, rgba(124, 140, 255, 0.07), rgba(47, 212, 189, 0.04)),
+    linear-gradient(180deg, rgba(var(--accent-rgb), 0.07), rgba(var(--indexed-rgb), 0.04)),
     var(--panel);
 }
 
@@ -165,7 +165,7 @@
 
 .exportFill {
   height: 100%;
-  background: linear-gradient(90deg, #7c8cff55, var(--accent));
+  background: linear-gradient(90deg, #947cff55, var(--accent));
   transition: width 500ms linear;
 }
 

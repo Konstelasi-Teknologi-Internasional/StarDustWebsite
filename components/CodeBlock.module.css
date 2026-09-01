@@ -1,5 +1,5 @@
 .block {
-  background: #080b12;
+  background: var(--well);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   overflow: hidden;
@@ -31,7 +31,7 @@
   color: var(--text-dim);
   cursor: pointer;
 }
-.copy:hover { color: var(--text); border-color: #3d4a68; }
+.copy:hover { color: var(--text); border-color: var(--border-hover); }
 
 .pre {
   margin: 0;
@@ -42,15 +42,15 @@
   tab-size: 4;
 }
 
-.comment { color: #55607a; font-style: italic; }
+.comment { color: #5c557a; font-style: italic; }
 .string  { color: #8fdcc0; }
-.key     { color: #7c8cff; }
-.var     { color: #d7dcec; }
+.key     { color: var(--accent); }
+.var     { color: #dbd7ec; }
 .arg     { color: #f0b429; }
 .keyword { color: #a48bff; }
 .type    { color: #2fd4bd; }
 .number  { color: #f0b429; }
-.fn      { color: #9fb0ff; }
+.fn      { color: #b19fff; }
 .flag    { color: #f0b429; }
-.punct   { color: #6b7691; }
-.plain   { color: #c9d0e2; }
+.punct   { color: #726b91; }
+.plain   { color: #cec9e2; }

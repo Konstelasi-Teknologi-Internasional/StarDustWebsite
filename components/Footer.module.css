@@ -1,7 +1,7 @@
 .footer {
   border-top: 1px solid var(--border);
   padding-top: 52px;
-  background: linear-gradient(180deg, transparent, rgba(124, 140, 255, 0.035));
+  background: linear-gradient(180deg, transparent, rgba(var(--accent-rgb), 0.035));
 }
 
 .inner {

@@ -1,33 +1,49 @@
 /* ------------------------------------------------------------------
    StarDust — design tokens.
 
-   Dark cosmic-technical: near-black ground with a blue cast, one indigo
-   accent for structure and one teal accent that means exactly "indexed".
-   Colour carries meaning in the demos, so the slot-status ramp below is
+   Dark cosmic-technical: near-black ground with a purple cast, matching
+   Konstelasi's brand (deep violet #311B92 on black) — one violet accent
+   for structure and one teal accent that means exactly "indexed". This
+   ramp is a single hue rotation of the pre-brand blue-black palette onto
+   Konstelasi's hue, keeping every value's lightness/saturation intact so
+   contrast ratios don't drift; only teal/amber/rose stay untouched below,
+   because colour carries meaning in the demos and that status ramp is
    load-bearing, not decoration:
 
      teal   = ready / indexed / fast path
-     indigo = assigned / in motion
+     violet = assigned / in motion
      amber  = backfilling / pending / queued
      slate  = free / unindexed / JSON-only
      rose   = tombstoned / rejected / error
+
+   Every token consumed inside an rgba()/color-mix() elsewhere in this
+   codebase gets an "-rgb" companion here — that's the one place the
+   triplet is allowed to exist, so a future palette change can't leave a
+   stale rgba() literal behind in some component file.
    ------------------------------------------------------------------ */
 
 :root {
-  --bg:            #06070c;
-  --bg-raised:     #0b0e16;
-  --panel:         #101420;
-  --panel-2:       #151a28;
-  --border:        #212938;
-  --border-bright: #2e3850;
+  --bg:            #07060c;
+  --bg-rgb:        7, 6, 12;
+  --bg-raised:     #0d0b16;
+  --panel:         #131020;
+  --panel-rgb:     19, 16, 32;
+  --panel-2:       #191528;
+  --border:        #252138;
+  --border-bright: #342e50;
+  --border-hover:  #453d68;
+  --well:          #0a0715;
 
-  --text:      #e7eaf3;
-  --text-dim:  #9aa3ba;
-  --text-faint:#5f6982;
+  --text:      #e9e7f3;
+  --text-dim:  #a09aba;
+  --text-faint:#655f82;
 
-  --accent:      #7c8cff;
-  --accent-soft: #7c8cff22;
+  --accent:      #947cff;
+  --accent-rgb:  148, 124, 255;
+  --accent-soft: #947cff22;
+  --on-accent:   #0c0a14;
   --indexed:     #2fd4bd;
+  --indexed-rgb: 47, 212, 189;
   --indexed-soft:#2fd4bd1f;
   --pending:     #f0b429;
   --pending-soft:#f0b4291f;
@@ -36,8 +52,8 @@
 
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo,
           Consolas, "Liberation Mono", monospace;
-  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
-          Arial, sans-serif;
+  --sans: var(--font-poppins), system-ui, -apple-system, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
 
   --radius:    10px;
   --radius-sm: 6px;
@@ -155,19 +171,19 @@ code, pre, kbd { font-family: var(--mono); }
   transition: background 140ms var(--ease), border-color 140ms var(--ease),
               transform 140ms var(--ease);
 }
-.btn:hover:not(:disabled) { background: #1c2334; border-color: #3d4a68; }
+.btn:hover:not(:disabled) { background: #201c34; border-color: var(--border-hover); }
 .btn:active:not(:disabled) { transform: translateY(1px); }
 .btn:disabled { opacity: 0.42; cursor: not-allowed; }
 
 .btn-primary {
-  background: linear-gradient(180deg, #7f8fff, #5f6fe8);
-  border-color: #8b98ff;
-  color: #0a0c14;
+  background: linear-gradient(180deg, #977fff, #785fe8);
+  border-color: #a08bff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #93a0ff, #7181f2);
-  border-color: #a3adff;
+  background: linear-gradient(180deg, #a793ff, #8971f2);
+  border-color: #b4a3ff;
 }
 
 /* ---------- data chrome ---------- */
@@ -189,7 +205,7 @@ code, pre, kbd { font-family: var(--mono); }
 .tag-pending { color: var(--pending); border-color: #f0b42955; background: var(--pending-soft); }
 .tag-json    { color: var(--text-faint); border-color: var(--border); }
 .tag-error   { color: var(--danger); border-color: #ff6b8155; background: var(--danger-soft); }
-.tag-accent  { color: var(--accent); border-color: #7c8cff55; background: var(--accent-soft); }
+.tag-accent  { color: var(--accent); border-color: #947cff55; background: var(--accent-soft); }
 
 .dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -220,7 +236,7 @@ code, pre, kbd { font-family: var(--mono); }
   box-shadow: 0 8px 26px -8px rgba(0, 0, 0, 0.9);
 }
 
-.flyGhost--accent  { border-color: #7c8cff88; color: #b9c2ff; background: #171c33; }
+.flyGhost--accent  { border-color: #947cff88; color: #c6b9ff; background: #1c1733; }
 .flyGhost--indexed { border-color: #2fd4bd88; color: #8fe8da; background: #0f2a28; }
 .flyGhost--pending { border-color: #f0b42988; color: #f5cf7d; background: #2a2213; }
 .flyGhost--danger  { border-color: #ff6b8188; color: #ffa9b8; background: #2c1620; }
