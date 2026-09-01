@@ -40,6 +40,12 @@ restore:
   panel. It is a checked-in copy — the engine is a separate repository and
   nothing here can verify it — so when the engine adds an event, add it there in
   the same change.
+- **The schema is quoted, not paraphrased.** [`lib/sim/ddl.ts`](lib/sim/ddl.ts)
+  holds each `CREATE TABLE` verbatim from the engine's bootstrap runner, and the
+  playground puts it one click from the rows so the "these are the engine's
+  columns" claim is checkable. Same duty as `events.ts` and rather less
+  forgiving: a stale event name fails a build, a stale `CREATE TABLE` just looks
+  right. When the engine's schema changes, change it there in the same commit.
 
 Build sequencing lives in [`PLAYGROUND_ROADMAP.md`](PLAYGROUND_ROADMAP.md).
 

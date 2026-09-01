@@ -17,8 +17,9 @@ import type {
   SimCheckpoint,
   SimDlqRow,
   SimEntry,
+  SimExportJob,
   SimField,
-  SimJob,
+  SimImportJob,
   SimModel,
   SimPage,
   SimSlot,
@@ -32,8 +33,13 @@ import type {
  * snapshot that still parses is worse than one that is discarded.
  *
  * 2 — `SimWorld` gained `draft`, so a v1 snapshot restores without one.
+ * 3 — the job, checkpoint and DLQ shapes were aligned to the real tables:
+ *     `jobs` split into `importJobs` / `exportJobs`, and `seq` gained members.
+ *     `seq` is restored wholesale rather than merged, so a v2 snapshot would
+ *     come back with `seq.importJob === undefined` — a persisted broken world,
+ *     which is exactly what this constant exists to prevent.
  */
-export const SIM_SCHEMA_VERSION = 2;
+export const SIM_SCHEMA_VERSION = 3;
 
 /**
  * A page carries exactly 60 typed slots, split 25/15/10/10.
@@ -78,7 +84,14 @@ export interface SimSequences {
   slot: number;
   entry: number;
   sync: number;
-  job: number;
+  checkpoint: number;
+  /**
+   * Two counters, not one. `stardust_import_jobs` and `stardust_export_jobs`
+   * are separate tables with separate auto-increments, so import job 1 and
+   * export job 1 coexist — which a single shared counter would quietly hide.
+   */
+  importJob: number;
+  exportJob: number;
   dlq: number;
   event: number;
 }
@@ -92,6 +105,12 @@ export interface SimWorld {
 
   /** `stardust_schema_version.version` — bumped by registry changes. */
   schemaVersion: number;
+  /**
+   * `stardust_schema_version.updated_at`. The singleton is a real row with
+   * three columns, and the inspector renders it as one, so the timestamp is
+   * held rather than implied.
+   */
+  schemaVersionUpdatedAt: string;
 
   models: SimModel[];
   fields: SimField[];
@@ -100,7 +119,8 @@ export interface SimWorld {
   entries: SimEntry[];
   syncQueue: SimSyncRow[];
   checkpoints: SimCheckpoint[];
-  jobs: SimJob[];
+  importJobs: SimImportJob[];
+  exportJobs: SimExportJob[];
   dlq: SimDlqRow[];
 
   clock: SimClock;
@@ -124,6 +144,8 @@ export function emptyWorld(): SimWorld {
     simVersion: SIM_SCHEMA_VERSION,
     tenantId: 1,
     schemaVersion: 0,
+    // Bootstrap seeds the singleton row; it is never absent, only unbumped.
+    schemaVersionUpdatedAt: formatSimTime(0),
     models: [],
     fields: [],
     pages: [],
@@ -131,11 +153,24 @@ export function emptyWorld(): SimWorld {
     entries: [],
     syncQueue: [],
     checkpoints: [],
-    jobs: [],
+    importJobs: [],
+    exportJobs: [],
     dlq: [],
     clock: initialClock(),
     events: [],
-    seq: { model: 1, field: 1, page: 1, slot: 1, entry: 1, sync: 1, job: 1, dlq: 1, event: 1 },
+    seq: {
+      model: 1,
+      field: 1,
+      page: 1,
+      slot: 1,
+      entry: 1,
+      sync: 1,
+      checkpoint: 1,
+      importJob: 1,
+      exportJob: 1,
+      dlq: 1,
+      event: 1,
+    },
     draft: emptyDraft(),
   };
 }
@@ -153,7 +188,12 @@ export function emptyWorld(): SimWorld {
  * is what a real database does for rows inserted in the same second.
  */
 export function simNow(world: SimWorld): string {
-  const ms = Date.UTC(2026, 0, 1) + world.clock.tick * 1000;
+  return formatSimTime(world.clock.tick);
+}
+
+/** `Y-m-d H:i:s` in UTC, `tick` seconds after the world's epoch. */
+function formatSimTime(tick: number): string {
+  const ms = Date.UTC(2026, 0, 1) + tick * 1000;
   return new Date(ms).toISOString().slice(0, 19).replace('T', ' ');
 }
 
@@ -176,6 +216,27 @@ export const QUERYABLE_SLOT_STATUSES = ['assigned', 'ready'] as const;
 
 export function fieldsOf(world: SimWorld, modelId: number): SimField[] {
   return world.fields.filter(f => f.modelId === modelId && f.deletedAt === null);
+}
+
+/**
+ * The slot columns of a page that are spoken for — anything but `free`.
+ *
+ * Deliberately wider than {@link LIVE_SLOT_STATUSES}. A `tombstoned` slot is
+ * not live and can never answer a filter again, but its column still holds the
+ * old values until the sweep nullifies them chunk by chunk. Hiding it would
+ * make a page look tidier than it is during exactly the window where the
+ * residue is the thing worth seeing.
+ *
+ * It lives here rather than in the component that renders the columns, because
+ * "which slots count as in use" is a rule about slot statuses, and those are
+ * only allowed to be decided in one place.
+ */
+export function slotColumnsInUse(world: SimWorld, pageId: number): Set<string> {
+  return new Set(
+    world.slots
+      .filter(s => s.pageId === pageId && s.status !== 'free')
+      .map(s => s.slotColumn),
+  );
 }
 
 export function liveSlotForField(world: SimWorld, fieldId: number): SimSlot | undefined {

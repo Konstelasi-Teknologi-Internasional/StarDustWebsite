@@ -49,24 +49,24 @@
   overflow-wrap: anywhere;
 }
 
-.singleton,
 .absent {
   padding-bottom: 14px;
 }
 
-.singleton p,
 .absent p {
-  padding: 14px;
+  padding: 14px 14px 0;
+  margin: 0;
   color: var(--text-dim);
   font-size: 14px;
-}
-
-.singleton strong {
-  color: var(--indexed);
-  font-family: var(--mono);
+  max-width: 82ch;
 }
 
 .absent code {
   font-size: 12.5px;
   color: var(--accent);
 }
+
+.absentDdl {
+  padding: 14px 14px 0;
+}
+.absentDdl > * { border-radius: var(--radius-sm); }

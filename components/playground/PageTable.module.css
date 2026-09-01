@@ -1,0 +1,30 @@
+/* Teal means indexed, here as everywhere else on the site. */
+.indexed {
+  color: var(--indexed);
+  font-size: 9px;
+  vertical-align: 1px;
+}
+
+.null {
+  color: var(--text-faint);
+  font-style: normal;
+}
+
+.toggle {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border-bright);
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 140ms var(--ease), border-color 140ms var(--ease);
+}
+.toggle:hover { color: var(--text-dim); border-color: var(--border-hover); }
+.toggle[aria-pressed='true'] {
+  color: var(--indexed);
+  border-color: #2fd4bd55;
+  background: var(--indexed-soft);
+}

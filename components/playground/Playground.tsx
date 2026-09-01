@@ -13,7 +13,7 @@ import ClockBar from './ClockBar';
 import ModelBuilder from './ModelBuilder';
 import { PlaygroundProvider } from './PlaygroundContext';
 import SimulationNotice from './SimulationNotice';
-import WorldInspector from './WorldInspector';
+import TableInspector from './TableInspector';
 import styles from './Playground.module.css';
 
 /**
@@ -90,17 +90,7 @@ export default function Playground() {
 
           <ModelBuilder />
 
-          <section className={styles.stage} aria-label="the simulated database">
-            <h2 className={styles.stageTitle}>What the engine bootstrapped</h2>
-            <p className={styles.stageLede}>
-              Every table below is real — same names, same columns, same nullability as
-              the schema <code>bootstrap()</code> creates. Everything you define above
-              lands in the registry ones; the data plane stays empty until something
-              writes an entry, and <code>stardust_pages</code> stays empty until
-              something asks for slot capacity.
-            </p>
-            <WorldInspector />
-          </section>
+          <TableInspector />
         </div>
       </main>
       <Footer />

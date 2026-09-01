@@ -128,43 +128,116 @@ export interface SimSyncRow {
   createdAt: string;
 }
 
+/** `backfill_checkpoints.status`. Not the slot ENUM — a different four states. */
+export type CheckpointStatus = 'running' | 'paused' | 'completed' | 'failed';
+
 /**
  * `backfill_checkpoints`. One row per running lifecycle, keyed by a
  * thirteen-character `jobName` prefix (`retype_field_`, `rename_field_`,
  * `delete_field_`, `delete_model_`).
+ *
+ * There is deliberately no total-row count: the table has no such column, and
+ * a progress denominator is something a caller derives from the rows it is
+ * draining rather than something the checkpoint stores.
  */
 export interface SimCheckpoint {
+  id: number;
   jobName: string;
-  cursorId: number;
+  lastProcessedId: number;
+  status: CheckpointStatus;
+  startedAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  lastError: string | null;
   /** Retype only: the type values are coercing *from*. */
   sourceDeclaredType: DeclaredType | null;
-  totalRows: number;
-  updatedAt: string;
 }
 
-export type JobKind = 'import' | 'export';
 export type JobStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
-/** `stardust_import_jobs` / `stardust_export_jobs`, collapsed into one shape. */
-export interface SimJob {
+/**
+ * `stardust_import_jobs`.
+ *
+ * A sibling of {@link SimExportJob} rather than a variant of it. The two are
+ * separate tables with different columns and independent auto-increments, and
+ * collapsing them into one shape would mean rendering a table name that does
+ * not exist. What they genuinely share is the claim protocol —
+ * `workerIdentity` / `claimedAt` / `heartbeatAt` — because both are drained by
+ * multi-worker daemons that recover an abandoned claim from a lapsed
+ * heartbeat.
+ */
+export interface SimImportJob {
   id: number;
-  kind: JobKind;
   tenantId: number;
-  modelId: number | null;
   status: JobStatus;
-  format: 'csv' | 'json' | null;
-  cursorId: number | null;
-  rowsWritten: number;
-  artifactPath: string | null;
+  /** UNIQUE per tenant, and NULL-able: unkeyed submissions never collide. */
+  idempotencyKey: string | null;
+  artifactPath: string;
+  entryCount: number;
+  /** Written chunk by chunk — it doubles as the resume checkpoint. */
+  manifest: Record<string, unknown> | null;
   failedReason: string | null;
+  workerIdentity: string | null;
+  claimedAt: string | null;
+  heartbeatAt: string | null;
   createdAt: string;
   completedAt: string | null;
 }
 
-/** `stardust_reconciler_dlq`. Has no FK to `entry_data`, on purpose. */
+/**
+ * `stardust_export_jobs`.
+ *
+ * `filter` holds a `{model_id, filter}` envelope: the engine stamps the model
+ * id at the top level and preserves the consumer's original QueryFilter
+ * verbatim underneath, so the wire-format validator never has to peel out the
+ * engine's own stamping.
+ */
+export interface SimExportJob {
+  id: number;
+  tenantId: number;
+  status: JobStatus;
+  /** The `{model_id, filter}` envelope, not the consumer's filter alone. */
+  filter: Record<string, unknown>;
+  format: 'csv' | 'json';
+  lastCursor: number | null;
+  artifactPath: string | null;
+  failedReason: string | null;
+  skipCount: number;
+  workerIdentity: string | null;
+  claimedAt: string | null;
+  heartbeatAt: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+/** Which work source produced a DLQ row. */
+export type DlqSource = 'sync_queue' | 'bulk_import';
+
+/** `stardust_reconciler_dlq.reason`, a closed ENUM. */
+export type DlqReason =
+  | 'malformed_json'
+  | 'missing_entry_data'
+  | 'schema_incompatibility'
+  | 'other';
+
+/**
+ * `stardust_reconciler_dlq`.
+ *
+ * `entryId` is nullable *and* unconstrained. There is no FK to `entry_data`
+ * on purpose — the `missing_entry_data` reason exists precisely so that a DLQ
+ * row outlives the row that produced it, which a foreign key would forbid.
+ * That is why `tenantId` and `modelId` are stored here rather than joined for:
+ * once the entry is gone they are the only way to know whose it was.
+ */
 export interface SimDlqRow {
   id: number;
-  entryId: number;
-  reason: string;
-  createdAt: string;
+  source: DlqSource;
+  entryId: number | null;
+  tenantId: number;
+  modelId: number;
+  reason: DlqReason;
+  errorMessage: string | null;
+  failedAt: string;
+  retryCount: number;
+  chunkCorrelationId: string;
 }

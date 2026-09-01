@@ -181,7 +181,11 @@ export function createModel(world: SimWorld, draft: SimDraft): CommitResult {
       models,
       fields,
       seq,
+      // `UPDATE stardust_schema_version SET version = version + 1,
+      // updated_at = ?` is one statement, so the timestamp moves with the
+      // version or not at all. A no-op re-run touches neither.
       schemaVersion: inserted ? world.schemaVersion + 1 : world.schemaVersion,
+      schemaVersionUpdatedAt: inserted ? now : world.schemaVersionUpdatedAt,
       // The draft is re-pointed at what it just committed rather than
       // cleared: the visitor can see what landed, and pressing create again
       // demonstrates get-or-create instead of making a second model.
