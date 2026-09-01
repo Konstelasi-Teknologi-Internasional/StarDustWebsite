@@ -98,6 +98,8 @@ function isWorldish(value: unknown): value is SimWorld {
     typeof w.clock === 'object' &&
     w.clock !== null &&
     typeof w.seq === 'object' &&
-    w.seq !== null
+    w.seq !== null &&
+    typeof w.draft === 'object' &&
+    w.draft !== null
   );
 }

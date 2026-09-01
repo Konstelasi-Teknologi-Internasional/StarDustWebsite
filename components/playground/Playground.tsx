@@ -10,6 +10,7 @@ import { emptyWorld } from '@/lib/sim/world';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTicker } from '@/lib/useTicker';
 import ClockBar from './ClockBar';
+import ModelBuilder from './ModelBuilder';
 import { PlaygroundProvider } from './PlaygroundContext';
 import SimulationNotice from './SimulationNotice';
 import WorldInspector from './WorldInspector';
@@ -87,13 +88,16 @@ export default function Playground() {
 
           <ClockBar onReset={onReset} />
 
+          <ModelBuilder />
+
           <section className={styles.stage} aria-label="the simulated database">
             <h2 className={styles.stageTitle}>What the engine bootstrapped</h2>
             <p className={styles.stageLede}>
               Every table below is real — same names, same columns, same nullability as
-              the schema <code>bootstrap()</code> creates. Right now they are all empty,
-              which is the honest starting point: bootstrap creates the schema and
-              provisions nothing at all.
+              the schema <code>bootstrap()</code> creates. Everything you define above
+              lands in the registry ones; the data plane stays empty until something
+              writes an entry, and <code>stardust_pages</code> stays empty until
+              something asks for slot capacity.
             </p>
             <WorldInspector />
           </section>
