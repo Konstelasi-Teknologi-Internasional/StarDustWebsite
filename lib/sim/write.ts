@@ -33,7 +33,8 @@
  * returning the world unchanged is what a rollback amounts to.
  */
 
-import { detail, line, type SimEvent } from './events';
+import { emit } from './emit';
+import { detail, line } from './events';
 import type { PayloadRow, SimPayloadDraft } from './payload';
 import type { DeclaredType, SimEntry, SimSyncRow, SlotStatus } from './types';
 import { fieldsOf, liveSlotForField, simNow, type SimWorld } from './world';
@@ -592,16 +593,6 @@ function writeWithin(
       unknownKeys: plan.unknownKeys,
     },
   };
-}
-
-/** Append events, minting their `seq` from the world so the reducer stays pure. */
-function emit(
-  world: SimWorld,
-  make: (nextSeq: () => number, tick: number) => SimEvent[],
-): SimWorld {
-  const seq = { ...world.seq };
-  const lines = make(() => seq.event++, world.clock.tick);
-  return { ...world, seq, events: [...world.events, ...lines] };
 }
 
 /**

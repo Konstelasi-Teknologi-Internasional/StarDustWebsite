@@ -1,6 +1,7 @@
 'use client';
 
 import { DAEMON_NAMES, SPEEDS, type SpeedIndex } from '@/lib/sim/clock';
+import { useReducedMotion } from '@/lib/useReducedMotion';
 import { usePlayground } from './PlaygroundContext';
 import styles from './ClockBar.module.css';
 
@@ -18,6 +19,7 @@ const SPEED_LABELS = ['0.5×', '1×', '2×'] as const;
 export default function ClockBar({ onReset }: { onReset: () => void }) {
   const { world, dispatch } = usePlayground();
   const { clock } = world;
+  const reduced = useReducedMotion();
 
   return (
     <div className={`panel ${styles.bar}`}>
@@ -26,6 +28,17 @@ export default function ClockBar({ onReset }: { onReset: () => void }) {
           type="button"
           className="btn btn-primary"
           onClick={() => dispatch({ type: 'clock/toggleRunning' })}
+          // Under reduced motion the ticker never starts, so letting the clock
+          // be marked running would strand the page: nothing advances, and the
+          // step button below is the only thing that could. Disabled here so
+          // that state cannot be entered at all — the note above the bar
+          // already explains that step is how the walkthrough proceeds.
+          disabled={reduced}
+          title={
+            reduced
+              ? 'Reduced motion is on, so the clock does not run itself. Use step.'
+              : undefined
+          }
         >
           {clock.running ? 'pause' : 'run'}
         </button>
@@ -34,7 +47,11 @@ export default function ClockBar({ onReset }: { onReset: () => void }) {
           type="button"
           className="btn"
           onClick={() => dispatch({ type: 'clock/tick' })}
-          disabled={clock.running}
+          // The safety net for the same hazard. A world restored with
+          // `running: true` cannot happen (`persist.ts` clears it), but a
+          // future path that sets it under reduced motion would otherwise
+          // leave nothing on this bar able to advance the clock.
+          disabled={clock.running && !reduced}
           title="Advance exactly one tick"
         >
           step

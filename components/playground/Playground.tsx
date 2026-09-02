@@ -10,6 +10,7 @@ import { emptyWorld } from '@/lib/sim/world';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTicker } from '@/lib/useTicker';
 import ClockBar from './ClockBar';
+import DaemonRoom from './DaemonRoom';
 import EntryWriter from './EntryWriter';
 import ModelBuilder from './ModelBuilder';
 import { PlaygroundProvider } from './PlaygroundContext';
@@ -94,6 +95,8 @@ export default function Playground() {
           <TableInspector />
 
           <EntryWriter />
+
+          <DaemonRoom />
         </div>
       </main>
       <Footer />

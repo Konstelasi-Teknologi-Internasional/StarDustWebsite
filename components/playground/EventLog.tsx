@@ -85,6 +85,19 @@ export default function EventLog({
       {lines.length === 0 ? (
         <p className={styles.empty}>{empty}</p>
       ) : (
+        <>
+        {/* Same rule as `TableView`'s truncation note: a silently shortened
+            panel in a section whose whole claim is "these are the engine's
+            lines" is worse than a long one. It matters more from the daemon
+            stage on — a chunk that null-coerces five hundred rows emits five
+            hundred lines, which is a real thing the engine does and which can
+            push a whole poll cycle out of the retained window. */}
+        {lines.length >= EVENT_LOG_LIMIT && (
+          <p className={styles.truncated}>
+            the world retains the last {EVENT_LOG_LIMIT} lines — older ones have
+            scrolled off, not been suppressed
+          </p>
+        )}
         <div
           className={styles.log}
           ref={logRef}
@@ -119,6 +132,7 @@ export default function EventLog({
             </div>
           ))}
         </div>
+        </>
       )}
     </div>
   );

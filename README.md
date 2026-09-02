@@ -51,6 +51,16 @@ restore:
   naked string in the *server's* timezone. Reproducing that in a browser would
   mean guessing at a server configuration and rendering the guess as fact, so
   it is a documented subset instead.
+- **Where the simulation is *wider* than the engine — because the engine has a
+  bug — it says so at the line that causes it.** There is exactly one, and it is
+  the only kind of divergence that needs naming rather than merely documenting:
+  the simulation resets `sweep_cursor_id` when a slot is tombstoned, and the
+  engine does not, so a recycled slot column's second sweep skips every row
+  below the first sweep's final cursor. Reproducing it faithfully would make the
+  playground's reclaim demo teach a defect. The comment in
+  [`lib/sim/reserve.ts`](lib/sim/reserve.ts) is what stops it being quietly
+  "corrected" back to match; when the engine fixes it, delete the comment rather
+  than the line.
 - **The schema is quoted, not paraphrased.** [`lib/sim/ddl.ts`](lib/sim/ddl.ts)
   holds each `CREATE TABLE` verbatim from the engine's bootstrap runner, and the
   playground puts it one click from the rows so the "these are the engine's

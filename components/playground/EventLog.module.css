@@ -11,6 +11,14 @@
   color: var(--text-faint);
 }
 
+.truncated {
+  padding: 8px 14px 0;
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 .log {
   padding: 12px 14px;
   font-family: var(--mono);

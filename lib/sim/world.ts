@@ -10,6 +10,7 @@
  */
 
 import { initialClock, type SimClock } from './clock';
+import type { DaemonActivityMap } from './daemons/types';
 import { emptyDraft, type SimDraft } from './draft';
 import type { SimEvent } from './events';
 import { emptyPayloadDraft, type SimPayloadDraft } from './payload';
@@ -133,6 +134,14 @@ export interface SimSequences {
   event: number;
 }
 
+/** What `promoteFieldToFilterable()` / `demoteFieldFromFilterable()` reported. */
+export interface LifecycleOutcome {
+  fieldId: number;
+  action: 'promote' | 'demote';
+  /** Null on success. The engine's exception message otherwise. */
+  error: string | null;
+}
+
 export interface SimWorld {
   /** Snapshot compatibility, not `stardust_schema_version`. */
   simVersion: number;
@@ -164,6 +173,23 @@ export interface SimWorld {
   /** Capped in the reducer; a log that grows forever is a memory leak. */
   events: SimEvent[];
   seq: SimSequences;
+
+  /**
+   * What each daemon did on its last poll. **Not a table** — see
+   * {@link ./daemons/types.ts}. The event log is capped, so a daemon that last
+   * ran two hundred lines ago would otherwise have nothing to show on its card.
+   */
+  daemonActivity: DaemonActivityMap;
+
+  /**
+   * The outcome of the last promote/demote call. Not a table either.
+   *
+   * The engine throws on a refused lifecycle and returns `void` on an accepted
+   * one, so there is nothing to render without holding it — and the refusals
+   * are worth rendering, because "a field already has a retype in flight" is a
+   * rule rather than a mistake.
+   */
+  lastLifecycle: LifecycleOutcome | null;
 
   /**
    * The model being defined but not yet committed. One of the two members
@@ -201,6 +227,8 @@ export function emptyWorld(): SimWorld {
     dlq: [],
     clock: initialClock(),
     events: [],
+    daemonActivity: {},
+    lastLifecycle: null,
     seq: {
       model: 1,
       field: 1,

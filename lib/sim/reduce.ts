@@ -14,7 +14,13 @@
  */
 
 import { advance, type DaemonName, type SpeedIndex } from './clock';
+import { chroniclerTick } from './daemons/chronicler';
+import { liberatorTick } from './daemons/liberator';
+import { reconcilerTick } from './daemons/reconciler';
+import { watcherTick } from './daemons/watcher';
 import { emptyDraft, nextFieldName, type DraftField } from './draft';
+import { correlationId } from './emit';
+import { demoteField, promoteField } from './retype';
 import {
   emptyPayloadDraft,
   nextUnknownKeyName,
@@ -64,17 +70,33 @@ export type SimAction =
   /* ---- the write path ---- */
   | { type: 'entry/write' }
   | { type: 'entry/seed'; count?: number }
-  | { type: 'entry/delete'; entryId: number };
+  | { type: 'entry/delete'; entryId: number }
+  /* ---- the filterability lifecycle ---- */
+  /** `$stardust->promoteFieldToFilterable($tenantId, $fieldId)`. */
+  | { type: 'field/promote'; fieldId: number }
+  /** `$stardust->demoteFieldFromFilterable($tenantId, $fieldId)`. */
+  | { type: 'field/demote'; fieldId: number };
 
 /**
  * Per-daemon tick reducers, registered by name.
  *
- * Empty at this stage — the daemons themselves are a later stage — but the
- * seam is here so that adding one is a registration rather than a rewrite of
- * the tick path. Each will be `(world) => world`, pure, with its emitted
- * events appended to `world.events`.
+ * The seam stage 0 left open, now filled. Each is `(world) => world`, pure,
+ * with its emitted events appended to `world.events` — which is what makes
+ * step-one-tick and replay free rather than a special case.
+ *
+ * They are registered rather than called in sequence on purpose: `clock/tick`
+ * asks the clock which daemons came due and folds only those, so a daemon's
+ * poll period and its pause flag are the *only* things deciding whether it
+ * runs. Nothing here knows the order they were written in, and no daemon reads
+ * another's result — every interaction between them goes through the world,
+ * which is the shared MySQL the landing page keeps insisting on.
  */
-const DAEMON_REDUCERS: Partial<Record<DaemonName, (world: SimWorld) => SimWorld>> = {};
+const DAEMON_REDUCERS: Partial<Record<DaemonName, (world: SimWorld) => SimWorld>> = {
+  watcher: watcherTick,
+  reconciler: reconcilerTick,
+  liberator: liberatorTick,
+  chronicler: chroniclerTick,
+};
 
 /**
  * The reducer proper.
@@ -331,6 +353,25 @@ function apply(world: SimWorld, action: SimAction): SimWorld {
           ...result.world.payloadDraft,
           lastDelete: { entryId: action.entryId, deleted: result.deleted },
         },
+      };
+    }
+
+    /* ---------------- the filterability lifecycle ---------------- */
+
+    case 'field/promote':
+    case 'field/demote': {
+      const intent = action.type === 'field/promote' ? 'promote' : 'demote';
+      // The initiator is a caller, not a daemon, so its correlation id is
+      // minted on the `api` source rather than a daemon's.
+      const corrId = correlationId('api', world.clock.tick, world.seq.event);
+      const result =
+        intent === 'promote'
+          ? promoteField(world, action.fieldId, corrId)
+          : demoteField(world, action.fieldId, corrId);
+
+      return {
+        ...result.world,
+        lastLifecycle: { fieldId: action.fieldId, action: intent, error: result.error },
       };
     }
 
