@@ -60,7 +60,7 @@ export function load(): SimWorld | null {
     // Nested objects are merged onto their defaults rather than restored
     // wholesale. A top-level member absent from an older snapshot already came
     // back as its default, because the spread only overwrites keys that are
-    // present; a member absent from one of these four did not, and came back
+    // present; a member absent from one of these nested objects did not, and came back
     // `undefined` instead — a parsed, version-matched, structurally broken
     // world. That is the shape that crashed section C on render, before the
     // Reset button that would have cleared it could be reached.
@@ -77,6 +77,7 @@ export function load(): SimWorld | null {
       seq: { ...base.seq, ...parsed.seq },
       draft: { ...base.draft, ...parsed.draft },
       payloadDraft: { ...base.payloadDraft, ...parsed.payloadDraft },
+      queryDraft: { ...base.queryDraft, ...parsed.queryDraft },
     };
   } catch {
     clear();

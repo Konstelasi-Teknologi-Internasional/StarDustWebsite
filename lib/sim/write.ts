@@ -262,8 +262,12 @@ export function coerceForSlot(
  * the approximation shows is that PHP has `int` and `float` where JavaScript
  * has one `number`; splitting on `Number.isInteger` is the honest guess and
  * gives the right answer for every value a payload form can produce.
+ *
+ * Exported because the filter pre-flight puts the same function's output in
+ * *its* messages. Copying it would be the drift `emit()` was moved out of this
+ * file to prevent — one rule, one place, even when the rule is four lines.
  */
-function debugType(value: unknown): string {
+export function debugType(value: unknown): string {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'array';
   switch (typeof value) {

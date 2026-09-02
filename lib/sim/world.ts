@@ -14,6 +14,7 @@ import type { DaemonActivityMap } from './daemons/types';
 import { emptyDraft, type SimDraft } from './draft';
 import type { SimEvent } from './events';
 import { emptyPayloadDraft, type SimPayloadDraft } from './payload';
+import { emptyQueryDraft, type QueryDraft } from './query';
 import type {
   DeclaredType,
   SimCheckpoint,
@@ -42,10 +43,12 @@ import type {
  *   `{ ...emptyWorld(), ...parsed }`, so an older snapshot that lacks the key
  *   simply keeps the default. Bumping for one of those discards a returning
  *   visitor's schema in exchange for nothing.
- * - A new member of `clock`, `seq`, `draft` or `payloadDraft` no longer does
- *   either. Those four used to be restored wholesale, so a new member came
- *   back `undefined`; `persist.ts` now merges each onto its `emptyWorld()`
- *   default, and a missing one comes back as that default instead.
+ * - A new member of `clock`, `seq`, `draft`, `payloadDraft` or `queryDraft` no
+ *   longer does either. Those used to be restored wholesale, so a new member
+ *   came back `undefined`; `persist.ts` now merges each onto its
+ *   `emptyWorld()` default, and a missing one comes back as that default
+ *   instead. A new nested draft joins that list in `persist.ts` — `queryDraft`
+ *   did, in the same change that added it.
  * - An incompatible change to an existing shape still **does**. A member whose
  *   meaning or type changed is not repaired by a merge, and that is the case
  *   this constant is now for.
@@ -203,6 +206,14 @@ export interface SimWorld {
    * argument applies, and {@link ./payload.ts} carries it.
    */
   payloadDraft: SimPayloadDraft;
+
+  /**
+   * The filter being built, the sort, the cursor walked so far, and what the
+   * last run produced. The third of these, and {@link ./query.ts} carries the
+   * argument — which is the same argument, for the third time, and is why the
+   * rule is written on `SIM_SCHEMA_VERSION` rather than restated here.
+   */
+  queryDraft: QueryDraft;
 }
 
 /** How many log lines the world retains. The panel scrolls; memory doesn't. */
@@ -244,6 +255,7 @@ export function emptyWorld(): SimWorld {
     },
     draft: emptyDraft(),
     payloadDraft: emptyPayloadDraft(),
+    queryDraft: emptyQueryDraft(),
   };
 }
 

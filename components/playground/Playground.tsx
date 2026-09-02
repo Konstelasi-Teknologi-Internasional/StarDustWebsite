@@ -14,6 +14,7 @@ import DaemonRoom from './DaemonRoom';
 import EntryWriter from './EntryWriter';
 import ModelBuilder from './ModelBuilder';
 import { PlaygroundProvider } from './PlaygroundContext';
+import QueryBuilder from './QueryBuilder';
 import SimulationNotice from './SimulationNotice';
 import TableInspector from './TableInspector';
 import styles from './Playground.module.css';
@@ -97,6 +98,8 @@ export default function Playground() {
           <EntryWriter />
 
           <DaemonRoom />
+
+          <QueryBuilder />
         </div>
       </main>
       <Footer />

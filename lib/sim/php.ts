@@ -14,6 +14,7 @@
  */
 
 import type { SimDraft } from './draft';
+import { isLeaf, type FilterNode } from './filter/ast';
 
 /**
  * A PHP variable name derived from the model's.
@@ -144,6 +145,163 @@ export function writeEntrySnippetFull(
  * argument appears only when it is doing something, and the seed never
  * overrides either default.
  */
+/* ------------------------------------------------------------------ *
+ * The read path
+ * ------------------------------------------------------------------ */
+
+/**
+ * The decoded tree, as the PHP objects the decoder hands back.
+ *
+ * The wire format is what a gateway *receives*; this is what the rest of the
+ * engine actually consumes — the pre-flight resolves these leaves, and the
+ * compiler reads the operator and the resolved descriptor off them. Showing
+ * both is the difference between "here is some JSON" and "here is the boundary
+ * between the two".
+ *
+ * The classes and their constructor order are transcribed from
+ * `src/Filter/Ast/`: `LeafNode(string $operator, FieldRef $field, ?TypedValue
+ * $value)`, `FieldRef(string $modelName, string $fieldName)`,
+ * `AndNode(array $args)`, `OrNode(array $args)`, `NotNode(FilterNode $arg)`.
+ * `FieldRef` carries three further optional parameters — the resolved
+ * `modelId`, `fieldId` and descriptor — which are deliberately absent here:
+ * they are populated by pre-flight, not by the decoder, and rendering them
+ * would show a tree at a stage this pane is not at.
+ */
+export function filterAstSnippet(node: FilterNode | null): string {
+  if (node === null) {
+    return [
+      '// The envelope carried no `filter` key, so the decoder returns null.',
+      '// null is the match-all signal, not an error.',
+      '$filter = null;',
+    ].join('\n');
+  }
+  return `$filter = ${renderNode(node, 0)};`;
+}
+
+function renderNode(node: FilterNode, depth: number): string {
+  const pad = '    '.repeat(depth + 1);
+  const close = '    '.repeat(depth);
+
+  if (!isLeaf(node)) {
+    if (node.op === 'not') {
+      return `new NotNode(\n${pad}${renderNode(node.arg, depth + 1)},\n${close})`;
+    }
+    const className = node.op === 'and' ? 'AndNode' : 'OrNode';
+    const args = node.args
+      .map(child => `${pad}    ${renderNode(child, depth + 2)},`)
+      .join('\n');
+    return `new ${className}([\n${args}\n${pad}])`;
+  }
+
+  // `null` rather than a TypedValue is the structural invariant the decoder
+  // enforces for the two presence operators, and it is worth seeing: the
+  // absence of a value is typed, not encoded as an empty one.
+  const value =
+    node.value === undefined
+      ? 'null'
+      : `new TypedValue(${phpLiteral(node.value)})`;
+
+  return (
+    `new LeafNode(\n` +
+    `${pad}${quote(node.op)},\n` +
+    `${pad}new FieldRef(${quote(node.field.model)}, ${quote(node.field.name)}),\n` +
+    `${pad}${value},\n` +
+    `${close})`
+  );
+}
+
+/** A decoded JSON value as the PHP literal `json_decode()` would have produced. */
+function phpLiteral(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(phpLiteral).join(', ')}]`;
+  return phpValue(value);
+}
+
+/** The `use` lines a copy-paste of the AST would need. */
+export function filterAstSnippetFull(node: FilterNode | null): string {
+  if (node === null) return filterAstSnippet(node);
+
+  const used = new Set<string>();
+  const walk = (n: FilterNode): void => {
+    if (isLeaf(n)) {
+      used.add('LeafNode');
+      used.add('FieldRef');
+      if (n.value !== undefined) used.add('TypedValue');
+      return;
+    }
+    if (n.op === 'not') {
+      used.add('NotNode');
+      walk(n.arg);
+      return;
+    }
+    used.add(n.op === 'and' ? 'AndNode' : 'OrNode');
+    n.args.forEach(walk);
+  };
+  walk(node);
+
+  const imports = [...used]
+    .sort()
+    .map(name => `use StarDust\\Filter\\Ast\\${name};`)
+    .join('\n');
+
+  return `${imports}\n\n${filterAstSnippet(node)}`;
+}
+
+/** `SortSpec::byField('city', SortDirection::Desc)`, or nothing at all. */
+function sortArgument(target: string, fieldName: string | null, direction: string): string | null {
+  const dir = direction === 'desc' ? 'SortDirection::Desc' : 'SortDirection::Asc';
+  if (target === 'id') {
+    // The default ordering is `null`, not `SortSpec::byId()` — showing the
+    // explicit call for a read nobody sorted would suggest the parameter is
+    // required, and it is the one parameter whose absence is the whole reason
+    // existing callers were unaffected by ADR 0041.
+    return direction === 'asc' ? null : `SortSpec::byId(${dir})`;
+  }
+  if (target === 'created_at') return `SortSpec::byCreatedAt(${dir})`;
+  return `SortSpec::byField(${quote(fieldName ?? '')}, ${dir})`;
+}
+
+/**
+ * `$stardust->search(new SearchRequest(...))`, with the wire format decoded
+ * into it.
+ *
+ * The decoder is shown rather than elided because it is the seam a consumer
+ * actually uses: a gateway receives JSON from its own client, and
+ * `JsonFilterDecoder` is what turns that into the AST the request carries. A
+ * snippet that constructed `LeafNode`s by hand would be valid PHP and the
+ * wrong lesson.
+ */
+export function searchSnippet(
+  tenantId: number,
+  modelId: number | null,
+  pageSize: number,
+  sortTarget: string,
+  sortFieldName: string | null,
+  sortDirection: string,
+  hasCursor: boolean,
+): string {
+  const sort = sortArgument(sortTarget, sortFieldName, sortDirection);
+  const lines = [
+    'use StarDust\\Filter\\Json\\JsonFilterDecoder;',
+    'use StarDust\\Search\\SearchRequest;',
+    ...(sort === null ? [] : ['use StarDust\\Read\\SortDirection;', 'use StarDust\\Read\\SortSpec;']),
+    '',
+    '$filter = (new JsonFilterDecoder())->decode($json);',
+    '',
+    '$result = $stardust->search(new SearchRequest(',
+    `    tenantId: ${tenantId},`,
+    `    modelId: ${modelId ?? 0},`,
+    '    filter: $filter,',
+    `    pageSize: ${pageSize},`,
+    ...(hasCursor ? ['    cursor: $cursor,'] : []),
+    ...(sort === null ? [] : [`    sort: ${sort},`]),
+    '));',
+    '',
+    '// $result->rows        — this page only, never more than pageSize',
+    '// $result->nextCursor  — null when there is no next page',
+  ];
+  return lines.join('\n');
+}
+
 export function bulkWriteSnippet(count: number, tenantId: number, modelId: number | null): string {
   return [
     'use StarDust\\Write\\EntryPayload;',

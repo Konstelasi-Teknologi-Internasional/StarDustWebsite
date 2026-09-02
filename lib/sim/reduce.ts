@@ -26,7 +26,26 @@ import {
   nextUnknownKeyName,
   validatePayloadRows,
 } from './payload';
+import {
+  addLeaf,
+  emptyQueryDraft,
+  newLeaf,
+  nodeAt,
+  parseBuilderList,
+  parseBuilderValue,
+  replaceAt,
+  retypeLeafValue,
+  toggleGroupAt,
+  wrapAt,
+  type NodePath,
+  type QueryDraft,
+} from './query';
 import { createModel } from './registry';
+import { decodeFilter } from './filter/decode';
+import { encodeEnvelope } from './filter/encode';
+import { isLeaf, isRangeOperator, isSetOperator, type LeafNode, type LeafOperator } from './filter/ast';
+import { runSearch } from './search/execute';
+import type { SortDirection, SortSpec, SortTarget } from './search/sort';
 import type { DeclaredType } from './types';
 import {
   bulkWriteEntries,
@@ -75,7 +94,28 @@ export type SimAction =
   /** `$stardust->promoteFieldToFilterable($tenantId, $fieldId)`. */
   | { type: 'field/promote'; fieldId: number }
   /** `$stardust->demoteFieldFromFilterable($tenantId, $fieldId)`. */
-  | { type: 'field/demote'; fieldId: number };
+  | { type: 'field/demote'; fieldId: number }
+  /* ---- the query builder ---- */
+  | { type: 'query/selectModel'; modelId: number }
+  | { type: 'query/addCondition'; fieldName: string }
+  | { type: 'query/setField'; path: NodePath; fieldName: string }
+  | { type: 'query/setOperator'; path: NodePath; op: LeafOperator }
+  /** `index` addresses one end of a `between` pair; omitted for every other. */
+  | { type: 'query/setValue'; path: NodePath; text: string; index?: number }
+  | { type: 'query/removeNode'; path: NodePath }
+  | { type: 'query/wrap'; path: NodePath; kind: 'and' | 'or' | 'not' }
+  | { type: 'query/toggleGroup'; path: NodePath }
+  /** The visitor typed into the wire pane; the builder follows what decodes. */
+  | { type: 'query/setWireText'; text: string }
+  /** Hand the pane back to the builder, discarding hand-edited formatting. */
+  | { type: 'query/syncWire' }
+  | { type: 'query/setSort'; target: SortTarget; fieldName: string | null; direction: SortDirection }
+  | { type: 'query/setPageSize'; size: number }
+  /** `$stardust->search($request)` — always from the first page. */
+  | { type: 'query/run' }
+  | { type: 'query/nextPage' }
+  | { type: 'query/prevPage' }
+  | { type: 'query/reset' };
 
 /**
  * Per-daemon tick reducers, registered by name.
@@ -375,6 +415,141 @@ function apply(world: SimWorld, action: SimAction): SimWorld {
       };
     }
 
+    /* ---------------- the query builder ---------------- */
+
+    case 'query/selectModel':
+      // The tree names fields of a model, so switching models discards it.
+      // Carrying it across would produce `field_unknown` on every leaf, which
+      // is a true rejection about a filter the visitor did not write.
+      return patchQuery(world, () => ({
+        ...emptyQueryDraft(),
+        modelId: action.modelId,
+        pageSize: world.queryDraft.pageSize,
+      }));
+
+    case 'query/addCondition': {
+      const model = world.models.find(m => m.id === world.queryDraft.modelId);
+      if (model === undefined) return world;
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: addLeaf(draft.tree, newLeaf(model.name, action.fieldName)),
+      }));
+    }
+
+    case 'query/setField': {
+      const leaf = leafAt(world.queryDraft, action.path);
+      if (leaf === null) return world;
+      const declaredType = declaredTypeFor(world, action.fieldName);
+      // `prefix` survives only on a string field, matching the dropdown the
+      // builder offers — see `operatorsFor()`.
+      const op: LeafOperator =
+        leaf.op === 'prefix' && declaredType !== 'string' ? 'eq' : leaf.op;
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: replaceAt(draft.tree, action.path, {
+          ...leaf,
+          op,
+          field: { ...leaf.field, name: action.fieldName },
+        }),
+      }));
+    }
+
+    case 'query/setOperator': {
+      const leaf = leafAt(world.queryDraft, action.path);
+      if (leaf === null) return world;
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: replaceAt(draft.tree, action.path, retypeLeafValue(leaf, action.op)),
+      }));
+    }
+
+    case 'query/setValue': {
+      const leaf = leafAt(world.queryDraft, action.path);
+      if (leaf === null) return world;
+      const declaredType = declaredTypeFor(world, leaf.field.name);
+      const value = nextLeafValue(leaf, action.text, action.index, declaredType);
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: replaceAt(draft.tree, action.path, { ...leaf, value }),
+      }));
+    }
+
+    case 'query/removeNode':
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: replaceAt(draft.tree, action.path, null),
+      }));
+
+    case 'query/wrap':
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: wrapAt(draft.tree, action.path, action.kind),
+      }));
+
+    case 'query/toggleGroup':
+      return patchQuery(world, draft => ({
+        ...draft,
+        tree: toggleGroupAt(draft.tree, action.path),
+      }));
+
+    case 'query/setWireText': {
+      // The pane is authoritative while it holds text, and the builder follows
+      // whatever decodes — which is the round trip in the direction nobody
+      // expects to work. A rejected edit keeps the previous tree, so the
+      // builder does not empty itself while someone is halfway through typing.
+      const decoded = decodeFilter(action.text);
+      return {
+        ...world,
+        queryDraft: {
+          ...world.queryDraft,
+          wireText: action.text,
+          wireError: decoded.ok ? null : decoded.error,
+          tree: decoded.ok ? decoded.filter : world.queryDraft.tree,
+          lastRun: null,
+        },
+      };
+    }
+
+    case 'query/syncWire':
+      return {
+        ...world,
+        queryDraft: { ...world.queryDraft, wireText: null, wireError: null },
+      };
+
+    case 'query/setSort':
+      return patchQuery(world, draft => ({
+        ...draft,
+        sortTarget: action.target,
+        sortFieldName: action.fieldName,
+        sortDirection: action.direction,
+        // A cursor records the ordering it was issued under, so changing the
+        // sort invalidates the walk. Dropping the tokens here is what the
+        // engine's own advice — "restart pagination from the first page after
+        // changing the sort" — looks like when the caller takes it.
+        cursors: [],
+      }));
+
+    case 'query/setPageSize':
+      return patchQuery(world, draft => ({ ...draft, pageSize: action.size, cursors: [] }));
+
+    case 'query/run':
+      return runQuery(world, []);
+
+    case 'query/nextPage': {
+      const token = world.queryDraft.lastRun?.outcome?.nextCursor ?? null;
+      if (token === null) return world;
+      return runQuery(world, [...world.queryDraft.cursors, token]);
+    }
+
+    case 'query/prevPage':
+      return runQuery(world, world.queryDraft.cursors.slice(0, -1));
+
+    case 'query/reset':
+      return {
+        ...world,
+        queryDraft: { ...emptyQueryDraft(), modelId: world.queryDraft.modelId },
+      };
+
     case 'clock/tick': {
       const { clock, due } = advance(world.clock);
       return due.reduce<SimWorld>(
@@ -414,6 +589,148 @@ function renameValue(
   delete next[from];
   if (carried !== undefined && carried !== '') next[to] = carried;
   return next;
+}
+
+/* ------------------------------------------------------------------ *
+ * The query builder
+ * ------------------------------------------------------------------ */
+
+/**
+ * Edit the filter, retiring what the last run said about it.
+ *
+ * The same discipline as `patchPayload()` and every `draft/*` case: a result
+ * describes a filter the draft has since moved away from. It also hands the
+ * wire pane back to the builder — an edit made through the builder is the
+ * visitor saying the builder is the one they mean, and leaving hand-typed text
+ * in place would make the panel show a filter their next click did not change.
+ */
+function patchQuery(world: SimWorld, patch: (draft: QueryDraft) => QueryDraft): SimWorld {
+  const next = patch(world.queryDraft);
+  return {
+    ...world,
+    queryDraft: { ...next, wireText: null, wireError: null, lastRun: null },
+  };
+}
+
+/** The leaf at a path, or null if the path names a group or nothing. */
+function leafAt(draft: QueryDraft, path: NodePath): LeafNode | null {
+  const node = nodeAt(draft.tree, path);
+  if (node === null || !isLeaf(node)) return null;
+  return node;
+}
+
+/**
+ * The declared type of a field by name, defaulting to `string`.
+ *
+ * The default is only reached for a name with no registry row — a filter on a
+ * key the payload carries but `stardust_fields` does not — and such a leaf is
+ * rejected at pre-flight with `field_unknown` long before its type matters.
+ */
+function declaredTypeFor(world: SimWorld, fieldName: string): DeclaredType {
+  const modelId = world.queryDraft.modelId;
+  if (modelId === null) return 'string';
+  return fieldsOf(world, modelId).find(f => f.name === fieldName)?.declaredType ?? 'string';
+}
+
+/** One box's text, folded into whichever value shape the operator wants. */
+function nextLeafValue(
+  leaf: LeafNode,
+  text: string,
+  index: number | undefined,
+  declaredType: DeclaredType,
+): LeafNode['value'] {
+  if (isSetOperator(leaf.op)) return parseBuilderList(text, declaredType);
+  if (isRangeOperator(leaf.op)) {
+    const current = Array.isArray(leaf.value) ? leaf.value : [];
+    const pair = [current[0] ?? '', current[1] ?? ''];
+    pair[index ?? 0] = parseBuilderValue(text, declaredType);
+    return pair;
+  }
+  return parseBuilderValue(text, declaredType);
+}
+
+/**
+ * The sort, as the engine's optional parameter.
+ *
+ * The default — id, ascending — resolves to `null` rather than to an explicit
+ * spec, because that is the ordering every read had before ADR 0041 and null
+ * is what emits a **v1** cursor. The two are interchangeable to the cursor's
+ * mismatch check, which treats a v1 token and an explicit `$id`/asc as the
+ * same ordering; mapping the default to null is what makes both token formats
+ * appear in ordinary use rather than only under a deliberate choice.
+ */
+function sortSpecOf(draft: QueryDraft): SortSpec | null {
+  if (draft.sortTarget === 'id' && draft.sortDirection === 'asc') return null;
+  return {
+    target: draft.sortTarget,
+    fieldName: draft.sortTarget === 'field' ? draft.sortFieldName : null,
+    direction: draft.sortDirection,
+  };
+}
+
+/**
+ * Run the query for a given cursor stack.
+ *
+ * **The envelope is always decoded before it executes**, even when the builder
+ * produced it and nobody has typed a character. That is what makes the pane's
+ * claim literal rather than decorative — the JSON on screen is the input, not
+ * a rendering of one — and it means the decoder's own behaviour is visible in
+ * ordinary use: an `in` list with a repeated element comes back deduplicated
+ * because the decoder deduplicates it, not because the builder tidied up.
+ */
+function runQuery(world: SimWorld, cursors: string[]): SimWorld {
+  const draft = world.queryDraft;
+  if (draft.modelId === null) return world;
+
+  const ranText = draft.wireText ?? encodeEnvelope(draft.tree);
+  const decoded = decodeFilter(ranText);
+
+  if (!decoded.ok) {
+    return {
+      ...world,
+      queryDraft: {
+        ...draft,
+        cursors,
+        wireError: decoded.error,
+        lastRun: { outcome: null, rejection: null, wireError: decoded.error, ranText },
+      },
+    };
+  }
+
+  const corrId = correlationId('api', world.clock.tick, world.seq.event);
+  const { world: next, result } = runSearch(
+    world,
+    {
+      tenantId: world.tenantId,
+      modelId: draft.modelId,
+      filter: decoded.filter,
+      sort: sortSpecOf(draft),
+      pageSize: draft.pageSize,
+      cursor: cursors[cursors.length - 1] ?? null,
+    },
+    corrId,
+  );
+
+  // A null rejection means the snapshot itself was missing — an unknown or
+  // deleting model, which the model picker cannot currently produce. Leaving
+  // the draft alone is the honest response: nothing ran, so nothing is
+  // reported.
+  if (!result.ok && result.rejection === null) return next;
+
+  return {
+    ...next,
+    queryDraft: {
+      ...draft,
+      cursors,
+      wireError: null,
+      lastRun: {
+        outcome: result.ok ? result.outcome : null,
+        rejection: result.ok ? null : result.rejection,
+        wireError: null,
+        ranText,
+      },
+    },
+  };
 }
 
 /** Keeps the retained log bounded without the panel having to care. */

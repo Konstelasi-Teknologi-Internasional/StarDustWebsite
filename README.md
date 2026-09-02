@@ -34,12 +34,18 @@ restore:
 - **Engine semantics live only in `lib/sim/`.** No component encodes a rule about
   slots, statuses or daemons. If a component needs to know whether a filter would
   be rejected, it asks the core.
-- **Event names are a closed union.** [`lib/sim/events.ts`](lib/sim/events.ts)
-  mirrors the engine's own closed vocabulary, so an invented event name is a
+- **Event names, operators and error codes are closed unions.**
+  [`lib/sim/events.ts`](lib/sim/events.ts) mirrors the engine's closed event
+  vocabulary and [`lib/sim/filter/ast.ts`](lib/sim/filter/ast.ts) its twelve
+  operators and thirteen validation codes, so an invented name in either is a
   `npm run typecheck` failure rather than a plausible-looking string in a log
-  panel. It is a checked-in copy — the engine is a separate repository and
-  nothing here can verify it — so when the engine adds an event, add it there in
-  the same change.
+  panel or a dropdown. Both are checked-in copies — the engine is a separate
+  repository and nothing here can verify them — so when the engine adds one,
+  add it there in the same change. The filter decoder is the one mirror that
+  *can* be checked, and was: a 75-case corpus run through the engine's real
+  `JsonFilterDecoder` agrees with it on error code and JSON Pointer for every
+  case, including three where PHP's inability to tell `{}` from `[]` decides
+  the answer.
 - **Reducers are pure.** No `new Date()`, no `Math.random()`, no module-level
   counters: timestamps come from `simNow(world)` and ids from `world.seq`.
   React StrictMode double-invokes reducers, so anything else builds a different
@@ -50,17 +56,27 @@ restore:
   value to PHP's `DateTimeImmutable`, which also accepts `tomorrow` and reads a
   naked string in the *server's* timezone. Reproducing that in a browser would
   mean guessing at a server configuration and rendering the guess as fact, so
-  it is a documented subset instead.
+  it is a documented subset instead. The one narrowing that is a language
+  limit rather than a choice is in the filter decoder's `in` deduplication:
+  PHP distinguishes `1` from `1.0` and JavaScript does not, so the engine keeps
+  both and the simulation collapses them.
 - **Where the simulation is *wider* than the engine — because the engine has a
-  bug — it says so at the line that causes it.** There is exactly one, and it is
-  the only kind of divergence that needs naming rather than merely documenting:
-  the simulation resets `sweep_cursor_id` when a slot is tombstoned, and the
-  engine does not, so a recycled slot column's second sweep skips every row
-  below the first sweep's final cursor. Reproducing it faithfully would make the
-  playground's reclaim demo teach a defect. The comment in
-  [`lib/sim/reserve.ts`](lib/sim/reserve.ts) is what stops it being quietly
-  "corrected" back to match; when the engine fixes it, delete the comment rather
-  than the line.
+  bug — it says so at the line that causes it.** There are two, and this is the
+  only kind of divergence that needs naming rather than merely documenting,
+  because reproducing it faithfully would make a demo teach the defect:
+  - The simulation resets `sweep_cursor_id` when a slot is tombstoned and the
+    engine does not, so a recycled slot column's second sweep skips every row
+    below the first sweep's final cursor
+    ([`lib/sim/reserve.ts`](lib/sim/reserve.ts)).
+  - The simulation applies a datetime filter bound's UTC offset and the engine
+    does not: MySQL parses the offset off an RFC 3339 literal and throws it
+    away, so `+07:00` compares as though it were UTC — while the *write* path
+    converts properly, which means a value written and then filtered for does
+    not match itself ([`lib/sim/search/execute.ts`](lib/sim/search/execute.ts),
+    measured against a real MySQL 8.0.13).
+
+  Both comments are what stop the lines being quietly "corrected" back to
+  match; when the engine fixes either, delete the comment rather than the line.
 - **The schema is quoted, not paraphrased.** [`lib/sim/ddl.ts`](lib/sim/ddl.ts)
   holds each `CREATE TABLE` verbatim from the engine's bootstrap runner, and the
   playground puts it one click from the rows so the "these are the engine's
