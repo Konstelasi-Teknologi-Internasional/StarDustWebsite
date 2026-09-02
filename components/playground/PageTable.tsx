@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { allSlotColumns, pageDdl } from '@/lib/sim/ddl';
 import type { SimEntry, SimPage } from '@/lib/sim/types';
 import { slotColumnsInUse, SLOTS_PER_PAGE, type SimWorld } from '@/lib/sim/world';
-import TableView, { type Column } from './TableView';
+import TableView, { TABLE_ROW_LIMIT, type Column } from './TableView';
 import styles from './PageTable.module.css';
 
 type Props = {
@@ -95,6 +95,10 @@ export default function PageTable({ page, world }: Props) {
       rows={rows}
       rowKey={e => e.id}
       columns={columns}
+      // Up to 60 columns per row, so an uncapped seeded model is tens of
+      // thousands of cells. Empty through the write stage, and defused here
+      // rather than left for the stage that fills it.
+      maxRows={TABLE_ROW_LIMIT}
       ddl={pageDdl(page.id, page.indexedColumns)}
       empty="No mirrored rows yet. A row appears here when an entry is written to a model with at least one field holding a slot on this page."
     />

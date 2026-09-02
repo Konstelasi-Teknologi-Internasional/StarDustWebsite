@@ -247,3 +247,6 @@ code, pre, kbd { font-family: var(--mono); }
 .flyGhost--indexed { border-color: #2fd4bd88; color: #8fe8da; background: #0f2a28; }
 .flyGhost--pending { border-color: #f0b42988; color: #f5cf7d; background: #2a2213; }
 .flyGhost--danger  { border-color: #ff6b8188; color: #ffa9b8; background: #2c1620; }
+/* Neutral, and deliberately not rose: a JSON-only value is at its steady
+   state, not rejected. Slate is the ramp's colour for unindexed. */
+.flyGhost--json    { border-color: var(--border-hover); color: var(--text-dim); background: #14111f; }

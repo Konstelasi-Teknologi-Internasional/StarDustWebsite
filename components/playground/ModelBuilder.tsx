@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import CodeBlock from '@/components/CodeBlock';
 import { usePointerDrag } from '@/lib/usePointerDrag';
+import { slotSqlType } from '@/lib/sim/ddl';
 import type { CommitSummary, DraftField } from '@/lib/sim/draft';
 import { createModelSnippetFull } from '@/lib/sim/php';
 import { DECLARED_TYPES } from '@/lib/sim/registry';
@@ -17,13 +18,25 @@ type Payload =
   | { kind: 'palette'; declaredType: DeclaredType }
   | { kind: 'row'; index: number };
 
-/** One line per type, explaining what it costs rather than what it is. */
-const TYPE_BLURB: Record<DeclaredType, string> = {
-  string: 'TEXT, indexed on a 766-character prefix',
-  int: 'BIGINT',
-  numeric: 'DECIMAL',
-  datetime: 'DATETIME',
+/**
+ * What each type costs, beyond the column type itself.
+ *
+ * The column type is **not** repeated here — `slotSqlType()` owns that, and
+ * this map used to carry its own copy which had quietly drifted to `DECIMAL`
+ * for `numeric` where the engine provisions `DOUBLE`. A component encoding a
+ * rule about slot columns is exactly what the one-simulation-core rule
+ * forbids, and this is what it looks like when it goes wrong.
+ */
+const TYPE_SUFFIX: Record<DeclaredType, string> = {
+  string: ', indexed on a 766-character prefix',
+  int: '',
+  numeric: '',
+  datetime: '',
 };
+
+function typeBlurb(declaredType: DeclaredType): string {
+  return `${slotSqlType(declaredType)}${TYPE_SUFFIX[declaredType]}`;
+}
 
 /**
  * Section A — define your models.
@@ -140,7 +153,7 @@ export default function ModelBuilder() {
                     }}
                   >
                     <span className={styles.chipName}>{t}</span>
-                    <span className={styles.chipNote}>{TYPE_BLURB[t]}</span>
+                    <span className={styles.chipNote}>{typeBlurb(t)}</span>
                   </button>
                 ))}
               </div>

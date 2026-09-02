@@ -18,7 +18,7 @@ import type {
 import { SLOTS_PER_PAGE } from '@/lib/sim/world';
 import PageTable from './PageTable';
 import { usePlayground } from './PlaygroundContext';
-import TableView, { type Column } from './TableView';
+import TableView, { TABLE_ROW_LIMIT, type Column } from './TableView';
 import styles from './WorldInspector.module.css';
 
 type Group = 'registry' | 'data' | 'ops';
@@ -172,6 +172,7 @@ export default function WorldInspector() {
               rowKey={e => e.id}
               columns={ENTRY_COLUMNS}
               ddl={TABLE_DDL.entry_data}
+              maxRows={TABLE_ROW_LIMIT}
               empty="No entries yet. Every write lands here first, in full, whether or not any field is indexed."
             />
             {world.pages.length === 0 ? (
@@ -222,7 +223,12 @@ export default function WorldInspector() {
             />
             <TableView<SimSyncRow>
               name="stardust_sync_queue"
-              note="backfill debt"
+              note={
+                world.syncQueue.length === 0
+                  ? 'backfill debt'
+                  : `${world.syncQueue.length} rows of debt`
+              }
+              maxRows={TABLE_ROW_LIMIT}
               about="Deliberately tiny: an id, an entry id, a timestamp. A row lands here when a write could not be mirrored into a slot, and the write still succeeds — indexing being behind is never a reason to refuse data."
               rows={world.syncQueue}
               rowKey={r => r.id}

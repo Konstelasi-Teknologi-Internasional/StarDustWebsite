@@ -12,6 +12,7 @@
 import { initialClock, type SimClock } from './clock';
 import { emptyDraft, type SimDraft } from './draft';
 import type { SimEvent } from './events';
+import { emptyPayloadDraft, type SimPayloadDraft } from './payload';
 import type {
   DeclaredType,
   SimCheckpoint,
@@ -32,12 +33,48 @@ import type {
  * browser. Do it whenever a shape below changes incompatibly — a stale
  * snapshot that still parses is worse than one that is discarded.
  *
+ * **What does and does not require a bump**, because it is currently
+ * discoverable only by reading one spread operator in `persist.ts`, and every
+ * later stage faces the question:
+ *
+ * - A new **top-level** member of `SimWorld` does **not**. The restore is
+ *   `{ ...emptyWorld(), ...parsed }`, so an older snapshot that lacks the key
+ *   simply keeps the default. Bumping for one of those discards a returning
+ *   visitor's schema in exchange for nothing.
+ * - A new member of `clock`, `seq`, `draft` or `payloadDraft` no longer does
+ *   either. Those four used to be restored wholesale, so a new member came
+ *   back `undefined`; `persist.ts` now merges each onto its `emptyWorld()`
+ *   default, and a missing one comes back as that default instead.
+ * - An incompatible change to an existing shape still **does**. A member whose
+ *   meaning or type changed is not repaired by a merge, and that is the case
+ *   this constant is now for.
+ *
+ * And do not add the new member to `persist.ts`'s `isWorldish()` either: that
+ * probe is deliberately cheap, and requiring a key every older snapshot lacks
+ * reintroduces the discard through the back door.
+ *
  * 2 — `SimWorld` gained `draft`, so a v1 snapshot restores without one.
  * 3 — the job, checkpoint and DLQ shapes were aligned to the real tables:
  *     `jobs` split into `importJobs` / `exportJobs`, and `seq` gained members.
  *     `seq` is restored wholesale rather than merged, so a v2 snapshot would
  *     come back with `seq.importJob === undefined` — a persisted broken world,
  *     which is exactly what this constant exists to prevent.
+ *     That is the reasoning the nested merge above now retires: from this
+ *     version on, a missing member of one of those four comes back as its
+ *     default instead of `undefined`, so it is no longer a bump's job to
+ *     prevent it.
+ *
+ * `payloadDraft` arrived without a bump, as the first application of the rule
+ * above: it is top-level, `seq` already carried `entry` and `sync`, and a v3
+ * snapshot restores with an empty form and every model it had. It stayed at 3
+ * through the merge, too. While section C was still iterating, `payloadDraft`
+ * changed shape under a fixed version, and snapshots written mid-iteration
+ * restored with `payloadDraft.values === undefined` — which threw during
+ * render, unmounting the tree along with the Reset button that would have
+ * cleared it. That is a shape-churn hazard no version constant can catch,
+ * because the version does not move while a member is still being built; the
+ * merge is what fixes it, and it repairs those snapshots in place rather than
+ * discarding a returning visitor's schema.
  */
 export const SIM_SCHEMA_VERSION = 3;
 
@@ -129,11 +166,17 @@ export interface SimWorld {
   seq: SimSequences;
 
   /**
-   * The model being defined but not yet committed. The one member here with
-   * no table behind it — see {@link ./draft.ts} for why it lives on the world
-   * anyway.
+   * The model being defined but not yet committed. One of the two members
+   * here with no table behind it — see {@link ./draft.ts} for why it lives on
+   * the world anyway.
    */
   draft: SimDraft;
+
+  /**
+   * The entry being composed but not yet written. The other one; the same
+   * argument applies, and {@link ./payload.ts} carries it.
+   */
+  payloadDraft: SimPayloadDraft;
 }
 
 /** How many log lines the world retains. The panel scrolls; memory doesn't. */
@@ -172,6 +215,7 @@ export function emptyWorld(): SimWorld {
       event: 1,
     },
     draft: emptyDraft(),
+    payloadDraft: emptyPayloadDraft(),
   };
 }
 

@@ -40,6 +40,17 @@ restore:
   panel. It is a checked-in copy — the engine is a separate repository and
   nothing here can verify it — so when the engine adds an event, add it there in
   the same change.
+- **Reducers are pure.** No `new Date()`, no `Math.random()`, no module-level
+  counters: timestamps come from `simNow(world)` and ids from `world.seq`.
+  React StrictMode double-invokes reducers, so anything else builds a different
+  world in development than in production — and a random seed generator would
+  produce rows the event log then describes wrongly.
+- **Where the simulation is narrower than the engine, it says so on the page.**
+  The datetime parser takes ISO 8601 and `Y-m-d H:i:s`; the engine hands the
+  value to PHP's `DateTimeImmutable`, which also accepts `tomorrow` and reads a
+  naked string in the *server's* timezone. Reproducing that in a browser would
+  mean guessing at a server configuration and rendering the guess as fact, so
+  it is a documented subset instead.
 - **The schema is quoted, not paraphrased.** [`lib/sim/ddl.ts`](lib/sim/ddl.ts)
   holds each `CREATE TABLE` verbatim from the engine's bootstrap runner, and the
   playground puts it one click from the rows so the "these are the engine's
@@ -110,7 +121,10 @@ else — update that one constant if the domain changes.
 - **No CSS framework.** Design tokens live at the top of [`app/globals.css`](app/globals.css);
   everything else is CSS Modules. The colour ramp is load-bearing, not decorative —
   teal means *indexed*, amber means *pending/backfilling*, rose means *rejected or
-  tombstoned*. Keep that mapping if you add a demo.
+  tombstoned*, and neutral slate means *JSON-only: stored, and never mirrored by
+  design*. Keep that mapping if you add a demo — the last two are the pair most
+  easily confused, and colouring a JSON-only value as a failure teaches the
+  opposite of what the engine does.
 - **No animation library.** Transitions are CSS; the value-in-flight ghosts are the
   Web Animations API over measured DOM rects ([`lib/fly.ts`](lib/fly.ts)).
 - **Every demo honours `prefers-reduced-motion`** by jumping to a settled end state

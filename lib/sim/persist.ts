@@ -57,9 +57,27 @@ export function load(): SimWorld | null {
       clear();
       return null;
     }
-    // The clock never resumes itself on load. A page that starts ticking
-    // before the visitor has looked at it is the opposite of the point.
-    return { ...emptyWorld(), ...parsed, clock: { ...parsed.clock, running: false } };
+    // Nested objects are merged onto their defaults rather than restored
+    // wholesale. A top-level member absent from an older snapshot already came
+    // back as its default, because the spread only overwrites keys that are
+    // present; a member absent from one of these four did not, and came back
+    // `undefined` instead — a parsed, version-matched, structurally broken
+    // world. That is the shape that crashed section C on render, before the
+    // Reset button that would have cleared it could be reached.
+    //
+    // Spreading a missing source is a no-op (`{ ...undefined }` is `{}`), so
+    // this is also safe for a snapshot that lacks the key entirely.
+    const base = emptyWorld();
+    return {
+      ...base,
+      ...parsed,
+      // The clock never resumes itself on load. A page that starts ticking
+      // before the visitor has looked at it is the opposite of the point.
+      clock: { ...base.clock, ...parsed.clock, running: false },
+      seq: { ...base.seq, ...parsed.seq },
+      draft: { ...base.draft, ...parsed.draft },
+      payloadDraft: { ...base.payloadDraft, ...parsed.payloadDraft },
+    };
   } catch {
     clear();
     return null;

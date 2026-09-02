@@ -50,7 +50,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={poppins.variable}>
-      <body>{children}</body>
+      {/*
+        Extensions inject attributes onto <body> before React hydrates —
+        Grammarly's `data-gr-ext-installed`, ClickUp's class — which React
+        reports as a hydration mismatch against server HTML that cannot
+        possibly have carried them. Suppression is one level deep, so this
+        covers the attributes without hiding a real mismatch in `children`.
+      */}
+      <body suppressHydrationWarning>{children}</body>
     </html>
   );
 }

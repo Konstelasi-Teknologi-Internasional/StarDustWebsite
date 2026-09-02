@@ -75,6 +75,30 @@
 
 .end { text-align: right; }
 
+.truncated {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.truncatedNote {
+  padding: 0 14px 14px;
+  margin: 0;
+  color: var(--text-faint);
+  font-size: 12px;
+  max-width: 78ch;
+}
+
+/* The row a write just landed in: present and measurable, but reading as
+   not-yet-arrived until the ghost carrying it lands. */
+.landing {
+  opacity: 0.34;
+  transition: opacity 260ms var(--ease);
+}
+
+.deleted { opacity: 0.42; }
+
 /* An empty table is a lesson in several of these sections, not a failure —
    so it gets a written reason rather than a shrug. */
 .empty {

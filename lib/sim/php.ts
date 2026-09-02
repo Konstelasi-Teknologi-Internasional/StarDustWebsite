@@ -75,3 +75,88 @@ export function createModelSnippetFull(draft: SimDraft, tenantId: number): strin
     createModelSnippet(draft, tenantId),
   ].join('\n');
 }
+
+/* ------------------------------------------------------------------ *
+ * The write path
+ * ------------------------------------------------------------------ */
+
+/** A payload value as a PHP literal. */
+function phpValue(value: unknown): string {
+  if (value === null) return 'null';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (typeof value === 'number') return String(value);
+  return quote(String(value));
+}
+
+/**
+ * `$stardust->write(new EntryPayload(...))`.
+ *
+ * Named arguments rather than positional. `EntryPayload`'s constructor is
+ * positional, but the named form is valid PHP 8, is already this file's house
+ * style, and makes `modelId` visibly distinct from `tenantId` — two bare
+ * integers side by side is exactly the call a reader would get backwards.
+ *
+ * `fields` is always shown, even when empty. `createModelSnippet()` omits its
+ * third argument because that one has a default; this one does not.
+ */
+export function writeEntrySnippet(
+  fields: Record<string, unknown>,
+  tenantId: number,
+  modelId: number | null,
+): string {
+  const entries = Object.entries(fields);
+  const head = `$result = $stardust->write(new EntryPayload(\n    tenantId: ${tenantId},\n    modelId: ${modelId ?? 0},`;
+
+  if (entries.length === 0) {
+    return `${head}\n    fields: [],\n));`;
+  }
+
+  // Align the `=>` the way the engine's own array literals do.
+  const width = Math.max(...entries.map(([key]) => key.length));
+  const body = entries
+    .map(([key, value]) => `        ${quote(key).padEnd(width + 2)} => ${phpValue(value)},`)
+    .join('\n');
+
+  return `${head}\n    fields: [\n${body}\n    ],\n));`;
+}
+
+export function writeEntrySnippetFull(
+  fields: Record<string, unknown>,
+  tenantId: number,
+  modelId: number | null,
+): string {
+  return [
+    'use StarDust\\Write\\EntryPayload;',
+    '',
+    writeEntrySnippet(fields, tenantId, modelId),
+    '',
+    '// $result->entryId',
+    '// $result->enqueuedForBackfill  — true when a field had no live slot',
+    '// $result->slotsWritten         — the (pageId, slotColumn) pairs touched',
+  ].join('\n');
+}
+
+/**
+ * `$stardust->bulkWrite($payloads)`.
+ *
+ * The defaults are named in a comment rather than rendered as
+ * `new BulkIngestOptions(chunkSize: 500)`, on this file's existing rule: an
+ * argument appears only when it is doing something, and the seed never
+ * overrides either default.
+ */
+export function bulkWriteSnippet(count: number, tenantId: number, modelId: number | null): string {
+  return [
+    'use StarDust\\Write\\EntryPayload;',
+    '',
+    `/** @var list<EntryPayload> $payloads — ${count} entries for model ${modelId ?? 0}, tenant ${tenantId} */`,
+    '$result = $stardust->bulkWrite($payloads);',
+    '',
+    '// Up to 1,000 entities per call, in chunks of 500 — one transaction each.',
+    '// Above the threshold this throws PayloadTooLargeException and you use',
+    '// submitBulkWrite(), which queues a stardust_import_jobs row instead.',
+    'foreach ($result->chunks as $chunk) {',
+    '    // $chunk->chunkIndex, $chunk->outcome, $chunk->entryIds',
+    '}',
+  ].join('\n');
+}
+

@@ -135,3 +135,22 @@ export function line(
 ): SimEvent {
   return { seq, tick, level, source, event, detail };
 }
+
+/**
+ * Render ADR 0020's source-specific fields as the `key=value` text
+ * {@link SimEvent.detail} holds.
+ *
+ * Hand-writing those strings at every emit site is a drift surface — the
+ * engine's own field names are the thing being mirrored, and a typo in one of
+ * them is invisible in a way a bad event *name* is not, because only the name
+ * is typechecked. One helper means the shape is written once.
+ *
+ * Insertion order is preserved, `true`/`false` render as PHP would log them,
+ * and `null` renders as `null` rather than being omitted — an absent field and
+ * a null one are different things in a log line.
+ */
+export function detail(fields: Record<string, string | number | boolean | null>): string {
+  return Object.entries(fields)
+    .map(([key, value]) => `${key}=${value === null ? 'null' : String(value)}`)
+    .join(' ');
+}

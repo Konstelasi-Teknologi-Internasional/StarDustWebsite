@@ -27,8 +27,8 @@
  *    is the whole of the Index Provisioning Policy.
  */
 
-import { FAMILY_SLOT_COUNTS, slotColumnName } from './world';
-import type { SlotFamily } from './types';
+import { FAMILY_OF, FAMILY_SLOT_COUNTS, slotColumnName } from './world';
+import type { DeclaredType, SlotFamily } from './types';
 
 /** Every table `bootstrap()` creates. Extension pages are not among them. */
 export type TableName =
@@ -316,6 +316,20 @@ export function allSlotColumns(): string[] {
 /** The slot family a column name belongs to — `i_str_07` is `str`. */
 export function familyOfColumn(column: string): SlotFamily {
   return column.split('_')[1] as SlotFamily;
+}
+
+/**
+ * The MySQL type a field of this declared type would occupy.
+ *
+ * Exported because the model builder was carrying its own copy of this
+ * mapping, and the copy had drifted — it claimed `numeric` was `DECIMAL`,
+ * where the engine's provisioner and the DDL twelve lines above both say
+ * `DOUBLE`. Two copies of a rule about slot columns is one too many, and the
+ * one in a component was the wrong one twice over: wrong on the facts, and
+ * wrong to be there at all.
+ */
+export function slotSqlType(declaredType: DeclaredType): string {
+  return FAMILY_SQL_TYPE[FAMILY_OF[declaredType]];
 }
 
 /**

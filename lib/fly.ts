@@ -10,7 +10,16 @@
  */
 export type FlyOptions = {
   label: string;
-  tone?: 'accent' | 'indexed' | 'pending' | 'danger';
+  /**
+   * Maps to a `.flyGhost--{tone}` class in `globals.css`; adding one means
+   * editing both files.
+   *
+   * `json` is the neutral one, and it exists because the ramp is load-bearing:
+   * rose means *rejected or tombstoned*, and a value that lands in the JSON
+   * payload and is never mirrored is neither. It is at its steady state, and
+   * colouring it as a failure would teach the opposite of what ADR 0034 says.
+   */
+  tone?: 'accent' | 'indexed' | 'pending' | 'danger' | 'json';
   duration?: number;
   delay?: number;
   /** Stop this fraction along the path and dissolve, instead of landing. */

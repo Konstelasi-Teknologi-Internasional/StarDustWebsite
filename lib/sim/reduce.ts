@@ -15,8 +15,22 @@
 
 import { advance, type DaemonName, type SpeedIndex } from './clock';
 import { emptyDraft, nextFieldName, type DraftField } from './draft';
+import {
+  emptyPayloadDraft,
+  nextUnknownKeyName,
+  validatePayloadRows,
+} from './payload';
 import { createModel } from './registry';
 import type { DeclaredType } from './types';
+import {
+  bulkWriteEntries,
+  deleteEntry,
+  payloadRowsFor,
+  seedPayloads,
+  toPayloadFields,
+  writeEntry,
+  SEED_COUNT,
+} from './write';
 import { emptyWorld, EVENT_LOG_LIMIT, fieldsOf, type SimWorld } from './world';
 
 export type SimAction =
@@ -37,7 +51,20 @@ export type SimAction =
   | { type: 'draft/reset' }
   /** Re-open a committed model, so pressing create again shows get-or-create. */
   | { type: 'draft/loadModel'; modelId: number }
-  | { type: 'registry/createModel' };
+  | { type: 'registry/createModel' }
+  /* ---- the payload form ---- */
+  | { type: 'payload/selectModel'; modelId: number }
+  /** Keyed by field *name*: the rows are derived from the registry, not stored. */
+  | { type: 'payload/setValue'; name: string; value: string }
+  | { type: 'payload/addUnknownKey' }
+  /** Only an unknown key can be renamed — a registered row *is* the model. */
+  | { type: 'payload/renameKey'; key: string; name: string }
+  | { type: 'payload/removeKey'; key: string }
+  | { type: 'payload/reset' }
+  /* ---- the write path ---- */
+  | { type: 'entry/write' }
+  | { type: 'entry/seed'; count?: number }
+  | { type: 'entry/delete'; entryId: number };
 
 /**
  * Per-daemon tick reducers, registered by name.
@@ -49,7 +76,20 @@ export type SimAction =
  */
 const DAEMON_REDUCERS: Partial<Record<DaemonName, (world: SimWorld) => SimWorld>> = {};
 
+/**
+ * The reducer proper.
+ *
+ * `capEvents` wraps the whole switch rather than sitting inside `clock/tick`,
+ * where it started. That was correct while a tick was the only thing that
+ * could emit; from the write path onward it is not, and a cap that a new case
+ * has to remember to call is a cap that stops being one. The cost is an O(1)
+ * length check per action.
+ */
 export function reduce(world: SimWorld, action: SimAction): SimWorld {
+  return capEvents(apply(world, action));
+}
+
+function apply(world: SimWorld, action: SimAction): SimWorld {
   switch (action.type) {
     case 'world/hydrate':
       return action.world;
@@ -170,15 +210,169 @@ export function reduce(world: SimWorld, action: SimAction): SimWorld {
     case 'registry/createModel':
       return createModel(world, world.draft).world;
 
+    /* ---------------- the payload form ---------------- */
+
+    case 'payload/selectModel':
+      // Values are keyed by field name and deliberately survive the switch: a
+      // visitor who picked the wrong model, changed it, and lost everything
+      // they had typed would have learned nothing about the engine.
+      return patchPayload(world, draft => ({ ...draft, modelId: action.modelId }));
+
+    case 'payload/setValue':
+      return patchPayload(world, draft => ({
+        ...draft,
+        values: { ...draft.values, [action.name]: action.value },
+      }));
+
+    case 'payload/addUnknownKey':
+      return patchPayload(world, draft => {
+        const taken = [
+          ...fieldsOf(world, draft.modelId ?? -1).map(f => f.name),
+          ...draft.unknownKeys.map(u => u.name),
+        ];
+        return {
+          ...draft,
+          unknownKeys: [
+            ...draft.unknownKeys,
+            { key: `u${draft.nextKey}`, name: nextUnknownKeyName(taken) },
+          ],
+          nextKey: draft.nextKey + 1,
+        };
+      });
+
+    case 'payload/renameKey':
+      // Only unknown keys are in this list at all, so no guard is needed here:
+      // a registered field's name is the registry's, and changing one is
+      // `renameField()` — a migration over live data, not a form edit.
+      return patchPayload(world, draft => {
+        const target = draft.unknownKeys.find(u => u.key === action.key);
+        if (target === undefined) return draft;
+        return {
+          ...draft,
+          unknownKeys: draft.unknownKeys.map(u =>
+            u.key === action.key ? { ...u, name: action.name } : u,
+          ),
+          // Carry the typed value across to the new name, or renaming a key
+          // would silently blank it.
+          values: renameValue(draft.values, target.name, action.name),
+        };
+      });
+
+    case 'payload/removeKey':
+      return patchPayload(world, draft => {
+        const target = draft.unknownKeys.find(u => u.key === action.key);
+        if (target === undefined) return draft;
+        const values = { ...draft.values };
+        delete values[target.name];
+        return {
+          ...draft,
+          unknownKeys: draft.unknownKeys.filter(u => u.key !== action.key),
+          values,
+        };
+      });
+
+    case 'payload/reset': {
+      const { modelId } = world.payloadDraft;
+      return { ...world, payloadDraft: { ...emptyPayloadDraft(), modelId } };
+    }
+
+    /* ---------------- the write path ---------------- */
+
+    case 'entry/write': {
+      const draft = world.payloadDraft;
+      const rows = payloadRowsFor(world, draft);
+
+      const invalid = validatePayloadRows(draft.modelId, rows);
+      if (invalid !== null) {
+        return { ...world, payloadDraft: { ...draft, error: invalid, lastWrite: null } };
+      }
+      // Narrowed by validatePayloadRows, which rejects a null modelId.
+      if (draft.modelId === null) return world;
+
+      const result = writeEntry(world, draft.modelId, toPayloadFields(rows));
+      return {
+        ...result.world,
+        payloadDraft: {
+          ...draft,
+          error: result.error,
+          lastWrite: result.outcome,
+          lastDelete: null,
+        },
+      };
+    }
+
+    case 'entry/seed': {
+      const { modelId } = world.payloadDraft;
+      if (modelId === null) return world;
+
+      const count = action.count ?? SEED_COUNT;
+      const result = bulkWriteEntries(world, modelId, seedPayloads(world, modelId, count));
+      return {
+        ...result.world,
+        payloadDraft: {
+          ...world.payloadDraft,
+          error: result.error,
+          // A seed is a batch, not this form's entry — leaving `lastWrite`
+          // alone keeps the choreography from replaying against a row the
+          // visitor never composed.
+          lastWrite: null,
+        },
+      };
+    }
+
+    case 'entry/delete': {
+      const result = deleteEntry(world, action.entryId);
+      // `deleted: false` is the case worth carrying: the row does not change
+      // and nothing is logged, so without this there is no way for a visitor
+      // to observe that the second delete was a no-op rather than a failure.
+      return {
+        ...result.world,
+        payloadDraft: {
+          ...result.world.payloadDraft,
+          lastDelete: { entryId: action.entryId, deleted: result.deleted },
+        },
+      };
+    }
+
     case 'clock/tick': {
       const { clock, due } = advance(world.clock);
-      const ticked = due.reduce<SimWorld>(
+      return due.reduce<SimWorld>(
         (acc, name) => DAEMON_REDUCERS[name]?.(acc) ?? acc,
         { ...world, clock },
       );
-      return capEvents(ticked);
     }
   }
+}
+
+/**
+ * Edit the payload form, clearing the feedback from the last write.
+ *
+ * Same discipline as every `draft/*` case: an error or a result describes a
+ * state the form has since moved away from, so an edit retires it.
+ */
+function patchPayload(
+  world: SimWorld,
+  patch: (draft: SimWorld['payloadDraft']) => SimWorld['payloadDraft'],
+): SimWorld {
+  const next = patch(world.payloadDraft);
+  return {
+    ...world,
+    payloadDraft: { ...next, error: null, lastWrite: null, lastDelete: null },
+  };
+}
+
+/** Move a typed value from one key to another, dropping it if it was empty. */
+function renameValue(
+  values: Record<string, string>,
+  from: string,
+  to: string,
+): Record<string, string> {
+  if (from === to) return values;
+  const next = { ...values };
+  const carried = next[from];
+  delete next[from];
+  if (carried !== undefined && carried !== '') next[to] = carried;
+  return next;
 }
 
 /** Keeps the retained log bounded without the panel having to care. */
