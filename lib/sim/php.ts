@@ -302,6 +302,130 @@ export function searchSnippet(
   return lines.join('\n');
 }
 
+/**
+ * `$stardust->renameField()` — and the comment is most of the point.
+ *
+ * The call returns as soon as the registry commits, which is the thing a
+ * consumer gets wrong: it looks synchronous, and the payload rewrite that makes
+ * it true needs a Reconciler running. The snippet says so rather than leaving
+ * the visitor to infer it from a section heading.
+ */
+export function renameFieldSnippet(
+  tenantId: number,
+  fieldId: number,
+  oldName: string,
+  newName: string,
+): string {
+  return [
+    `// ${oldName} → ${newName}`,
+    `$stardust->renameField(${tenantId}, ${fieldId}, ${quote(newName)});`,
+    '',
+    '// Returns once the registry commits. stardust_fields.previous_name now',
+    '// holds the old name, and every stored payload is still keyed by it —',
+    '// the Reconciler rewrites them in chunks. Reads and writes bridge that',
+    '// window; filters naming the old field do not, on purpose.',
+  ].join('\n');
+}
+
+/**
+ * `$stardust->renameModel()` — the whole of it, including what it does not do.
+ *
+ * Shown next to `renameFieldSnippet()` because the contrast *is* the lesson:
+ * two calls with the same shape, one of which is a migration and one of which
+ * is a label change.
+ *
+ * `oldName === newName` is the ordinary case here rather than an edge one: the
+ * panel renders this before anything has been typed, so the arrow is dropped
+ * instead of rendering `// places → places`, which reads as a bug.
+ */
+export function renameModelSnippet(
+  tenantId: number,
+  modelId: number,
+  oldName: string,
+  newName: string,
+): string {
+  return [
+    oldName === newName ? `// rename model ${modelId}` : `// ${oldName} → ${newName}`,
+    `$stardust->renameModel(${tenantId}, ${modelId}, ${quote(newName)});`,
+    '',
+    '// Complete on return: one UPDATE, no checkpoint, no window. Identity is',
+    '// stardust_models.id, so nothing keyed on the name had to move — and',
+    '// stardust_schema_version is deliberately NOT bumped, because no cached',
+    '// snapshot holds a model name.',
+  ].join('\n');
+}
+
+/**
+ * `$stardust->retypeField()` — and the two things about it that surprise people.
+ *
+ * It carries the field's current filterability forward rather than taking one,
+ * and it reserves its replacement slot from the **target** family, which is why
+ * a retype across families needs the Watcher exactly as a cold-start promotion
+ * does.
+ */
+export function retypeFieldSnippet(
+  tenantId: number,
+  fieldId: number,
+  from: string,
+  to: string,
+): string {
+  return [
+    `// ${from} → ${to}`,
+    `$stardust->retypeField(${tenantId}, ${fieldId}, ${quote(to)});`,
+    '',
+    '// declared_type is overwritten now; the old one is stashed on the',
+    '// checkpoint, because nothing else can recover it afterwards. The old',
+    '// slot is tombstoned and a replacement is reserved from the target',
+    "// family, then every value is rewritten through that one matrix cell.",
+    '// Values that will not convert are written NULL with an audited reason —',
+    '// never rounded, never truncated.',
+  ].join('\n');
+}
+
+/**
+ * `$stardust->deleteField()`.
+ *
+ * Returns `bool`, and the `false` case is the one worth commenting: it covers
+ * three situations the engine deliberately makes indistinguishable.
+ */
+export function deleteFieldSnippet(tenantId: number, fieldId: number, name: string): string {
+  return [
+    `// delete ${name}`,
+    `$deleted = $stardust->deleteField(${tenantId}, ${fieldId});`,
+    '',
+    '// true once severance commits — from that moment the field is invisible',
+    '// to reads, filters, exports and describeModel(), while its values are',
+    '// still in entry_data. The Reconciler strips the key in chunks and the',
+    '// final chunk deletes the registry row.',
+    '//',
+    '// false means there was nothing to do: no such field, another tenant’s,',
+    '// or a deletion already in flight. The three are deliberately',
+    '// indistinguishable, which is what makes a repeated delete idempotent.',
+  ].join('\n');
+}
+
+/**
+ * `$stardust->deleteModel()`.
+ *
+ * The comment carries the warning rather than the prose around it, because
+ * this is the snippet somebody copies.
+ */
+export function deleteModelSnippet(tenantId: number, modelId: number, name: string): string {
+  return [
+    `// delete ${name} — and every entry in it`,
+    `$deleted = $stardust->deleteModel(${tenantId}, ${modelId});`,
+    '',
+    '// THE ONLY OPERATION IN THE ENGINE THAT DELETES entry_data ROWS.',
+    '// There is no undelete. Severance marks the model and every field it',
+    '// owns; the Reconciler then deletes the entries themselves, with their',
+    '// stardust_sync_queue rows, and the final chunk drops the model row.',
+    '//',
+    '// Meanwhile reads go dark and writes are REFUSED rather than stripped —',
+    '// the deliberate inversion of the field rule, because a deleted model',
+    '// leaves no residual entry worth preserving.',
+  ].join('\n');
+}
+
 export function bulkWriteSnippet(count: number, tenantId: number, modelId: number | null): string {
   return [
     'use StarDust\\Write\\EntryPayload;',

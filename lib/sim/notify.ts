@@ -41,18 +41,25 @@ import type { EventFields, EventName, SimEvent } from './events';
 import { fieldIndexState, SLOTS_PER_PAGE, type SimWorld } from './world';
 
 /* ------------------------------------------------------------------ *
- * The five section anchors
+ * The six section anchors
  * ------------------------------------------------------------------ */
 
 /**
  * The `id` of every section a milestone can point at.
  *
- * Closed, and matching the `id=` on the five `<section>` elements exactly —
+ * Closed, and matching the `id=` on the six `<section>` elements exactly —
  * these are already a public contract, since `ScenarioStrip` jump-links to
  * them and every section module carries a `scroll-margin-top` so the landing
  * clears the fixed nav and the sticky bar.
  */
-export const FEED_SECTIONS = ['define', 'tables', 'write', 'daemons', 'query'] as const;
+export const FEED_SECTIONS = [
+  'define',
+  'tables',
+  'write',
+  'daemons',
+  'query',
+  'evolve',
+] as const;
 
 export type FeedSection = (typeof FEED_SECTIONS)[number];
 
@@ -63,6 +70,7 @@ export const SECTION_LABELS: Record<FeedSection, string> = {
   write: 'the entry writer',
   daemons: 'the daemons',
   query: 'the query builder',
+  evolve: 'the schema changer',
 };
 
 /* ------------------------------------------------------------------ *
@@ -87,6 +95,12 @@ export const MILESTONE_KINDS = [
   'row-quarantined',
   'filter-refused',
   'column-reclaimed',
+  'rename-in-flight',
+  'rename-landed',
+  'field-severed',
+  'field-purged',
+  'model-severed',
+  'model-purged',
 ] as const;
 
 export type MilestoneKind = (typeof MILESTONE_KINDS)[number];
@@ -172,10 +186,20 @@ interface MilestoneSpec {
  * hook and no renderer is touched, and an event absent from this table simply
  * does not narrate.
  *
- * `provision_complete` is deliberately **not** mapped. It and
- * `page_provisioned` describe one provisioning from two sides, and the second
- * is the one carrying `page_id` and `filterable_slots` — mapping both would
- * put two cards on screen for one thing that happened once.
+ * Two names are deliberately **not** mapped, for two different reasons.
+ *
+ * `provision_complete` and `page_provisioned` describe one provisioning from
+ * two sides, and the second is the one carrying `page_id` and
+ * `filterable_slots` — mapping both would put two cards on screen for one thing
+ * that happened once.
+ *
+ * `model_renamed` has no consequence at a distance, which is the whole test
+ * this feed applies. A model name is load-bearing nowhere: no snapshot holds
+ * one, no filter resolves through one, and the rename is complete before the
+ * call returns — so there is no other section for a card to send anyone to. It
+ * is a `registry` line in the log panel and nothing more. Compare
+ * `rename_started` two entries down, whose entire point is that something four
+ * screens away is now in a state the visitor cannot see from here.
  */
 const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
   page_provisioned: {
@@ -320,6 +344,126 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       return {
         headline: 'That filter was refused',
         detail: refusalDetail(reason, name, world),
+      };
+    },
+  },
+
+  rename_started: {
+    kind: 'rename-in-flight',
+    // Points at the tables rather than at the section the visitor just clicked
+    // in, because the window is a thing you *look at*: `previous_name` goes
+    // non-null in `stardust_fields` and every payload is still on the old key.
+    section: 'tables',
+    tone: 'neutral',
+    say(fields) {
+      const oldName = str(fields, 'old_name');
+      const newName = str(fields, 'new_name');
+      if (oldName === undefined || newName === undefined) return null;
+
+      return {
+        headline: `${oldName} is now ${newName}`,
+        detail:
+          'The registry changed instantly; every stored payload is still on ' +
+          `the old key. Reads bridge the gap, filters on ${oldName} do not.`,
+      };
+    },
+  },
+
+  rename_complete: {
+    kind: 'rename-landed',
+    section: 'tables',
+    tone: 'good',
+    say(fields) {
+      const newName = str(fields, 'new_name');
+      if (newName === undefined) return null;
+
+      return {
+        headline: `Every row is on ${newName} now`,
+        detail:
+          'The backfill finished and previous_name is null again. The read ' +
+          'fallback is retired — nothing needs it, because nothing is behind.',
+      };
+    },
+  },
+
+  delete_started: {
+    kind: 'field-severed',
+    section: 'tables',
+    tone: 'warn',
+    say(fields) {
+      // Read off the event rather than looked up, and that is not a shortcut:
+      // by the time the purge's final chunk runs there is no row to look up,
+      // and a spec that resolved names from the world would narrate the
+      // beginning of a deletion and go silent at the end of it.
+      const name = str(fields, 'field_name');
+      if (name === undefined) return null;
+
+      return {
+        headline: `${name} is gone from every read`,
+        detail:
+          'Severance is instant and total — reads, filters, exports and ' +
+          'describeModel() all stop seeing it. Its values are still sitting ' +
+          'in entry_data until the purge reaches them.',
+      };
+    },
+  },
+
+  delete_complete: {
+    kind: 'field-purged',
+    section: 'tables',
+    tone: 'good',
+    say(fields) {
+      const name = str(fields, 'field_name');
+      if (name === undefined) return null;
+
+      return {
+        headline: `${name} is fully purged`,
+        detail:
+          'The last chunk removed the key from every payload and dropped the ' +
+          'registry row with it. The name is reusable again — it was not, ' +
+          'while the row still held it.',
+      };
+    },
+  },
+
+  model_delete_started: {
+    kind: 'model-severed',
+    // Reads go **dark** here rather than returning an error, which is the half
+    // a visitor is least likely to predict — so the card points at the place
+    // they can try it.
+    section: 'query',
+    tone: 'warn',
+    say(fields) {
+      const name = str(fields, 'model_name');
+      const fieldCount = num(fields, 'field_count');
+      if (name === undefined || fieldCount === undefined) return null;
+
+      return {
+        headline: `${name} has gone dark`,
+        detail:
+          `Severed along with all ${fieldCount} of its fields. Reads return ` +
+          'nothing — not an error, nothing, exactly as for a model that never ' +
+          'existed — and writes are refused rather than stripped.',
+      };
+    },
+  },
+
+  model_delete_complete: {
+    kind: 'model-purged',
+    section: 'tables',
+    tone: 'warn',
+    say(fields) {
+      const modelId = num(fields, 'model_id');
+      if (modelId === undefined) return null;
+
+      // Deliberately `warn` rather than `good`, unlike every other completion
+      // here. This is the one drain in the engine that destroys rows, and
+      // there is no undelete — a green card would be the wrong feeling.
+      return {
+        headline: `Model ${modelId} and its rows are gone`,
+        detail:
+          'The purge deleted the entries themselves, not just keys, and the ' +
+          'final chunk dropped the model row. Nothing retains them.',
       };
     },
   },

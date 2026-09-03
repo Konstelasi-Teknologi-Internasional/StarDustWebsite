@@ -11,6 +11,7 @@ function noneVisible(): Record<FeedSection, boolean> {
     write: false,
     daemons: false,
     query: false,
+    evolve: false,
   };
 }
 
@@ -24,13 +25,14 @@ function noneVisible(): Record<FeedSection, boolean> {
  * whatever a visitor had set up. Widening it to serve this would thread a new
  * branch through four shipped components that do not want one.
  *
- * The five anchors are looked up by `id`. That is not a shortcut around refs:
+ * The anchors are looked up by `id`. That is not a shortcut around refs:
  * those ids are already a public contract — `ScenarioStrip` jump-links to
  * them, `notify.ts` names them in a closed union, and every section module
  * carries a `scroll-margin-top` so the landing clears the fixed nav. Reaching
- * for them by name here costs five components no props they would otherwise
- * never need. All five render unconditionally from `Playground`, so they exist
- * by the time this effect runs.
+ * for them by name here costs the sections no props they would otherwise
+ * never need. All of them render unconditionally from `Playground`, so they
+ * exist by the time this effect runs — which is also why adding a section is
+ * one entry in `FEED_SECTIONS` and one key in `noneVisible()`, and nothing here.
  *
  * The margin is what makes "on screen" mean *usefully* on screen. A section
  * here can be several viewports tall, and one intersecting pixel at the far

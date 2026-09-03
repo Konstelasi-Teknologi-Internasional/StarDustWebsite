@@ -143,6 +143,41 @@ export function createModel(world: SimWorld, draft: SimDraft): CommitResult {
       f => f.modelId === model.id && f.name === draftField.name && f.deletedAt === null,
     );
 
+    // **A deleted field's name is not reusable until its purge lands.**
+    // `ux_fields_model_name` is unconditional, so the row still holds the name
+    // while `deleted_at` is set — the engine gets errno 1062 here and
+    // translates it. The `deleted_at IS NULL` predicate on the lookup above is
+    // what makes this reachable, and it is a data-loss guard rather than
+    // hygiene: without it, get-or-create would hand the caller back the id of a
+    // field whose values are actively being erased and whose row is about to be
+    // dropped.
+    //
+    // Freeing the name at initiation was considered and rejected upstream: it
+    // would mean renaming the field to a sentinel and stashing the real one in
+    // `previous_name`, which reads as "a rename is in flight" to five bridging
+    // surfaces and would have them alias the sentinel back.
+    if (existing === undefined) {
+      const deleting = fields.find(
+        f => f.modelId === model.id && f.name === draftField.name && f.deletedAt !== null,
+      );
+      if (deleting !== undefined) {
+        return {
+          world: {
+            ...world,
+            draft: {
+              ...draft,
+              error:
+                `FieldDeletionInProgressException: Field name '${draftField.name}' is held by ` +
+                `field ${deleting.id}, which is being deleted; the name cannot be reused until ` +
+                'its payload purge completes.',
+              lastCommit: null,
+            },
+          },
+          summary: null,
+        };
+      }
+    }
+
     if (existing !== undefined) {
       // Deliberately no update. See behaviour 2 in the file docblock: a
       // changed declared_type or is_filterable on an existing field is

@@ -1,0 +1,281 @@
+.section {
+  margin-top: 34px;
+  padding-top: 30px;
+  border-top: 1px solid var(--border);
+  /* Anchor target under a fixed nav plus the sticky clock bar. Matches every
+     other section module — the narration feed's jump links land here. */
+  scroll-margin-top: 124px;
+}
+
+.title { font-size: clamp(20px, 2.4vw, 27px); }
+.section code { font-size: 0.92em; color: var(--accent); }
+
+.beats {
+  margin-top: 22px;
+  margin-bottom: 20px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.beat {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.beatTitle { font-size: 15px; margin-bottom: 8px; }
+
+.beat p {
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Matches `.stack`'s own gap, so the log reads as one more card in the same
+   rhythm rather than a new spacing value invented for it. */
+.log {
+  margin-top: 14px;
+}
+
+.panel { overflow: hidden; }
+
+.empty {
+  padding: 18px 20px;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.modelRename {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child { border-bottom: none; }
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.field {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 9px;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.field em {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* ---- the rename control ---- */
+
+.control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.controlLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.controlLabel > span {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.controlLabel input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.controlLabel input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.controlLabel input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Full width on its own line: the hint is a sentence, not a label. */
+.hint {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+/* ---- the open window ---- */
+
+.window {
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.windowCounts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+}
+
+.count {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.count strong {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--text);
+}
+
+.footnote {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-dim);
+}
+
+.footnote strong { color: var(--text); font-weight: 600; }
+
+/* ---- the destructive controls ---- */
+
+/**
+ * Two contexts, one border-top separator, and only one of them has padding
+ * elsewhere to lean on. Nested inside `.row` (the per-field danger block),
+ * `.row`'s own `padding: 15px 16px` already insets the content, so `.danger`
+ * only has to add the top separator. As a **direct child of `.panel`** (the
+ * model-level danger block), there is no ancestor padding at all — `.panel`
+ * itself carries none, unlike `.modelRename` and `.row`, which each supply
+ * their own — so without `.modelDanger` alongside it the button, footnote and
+ * code block sit flush against the panel's edges.
+ */
+.danger {
+  border-top: 1px solid var(--border);
+  padding-top: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.modelDanger {
+  padding: 14px 16px 16px;
+}
+
+/* The second press. Deliberately loud: the model half of this destroys rows
+   and there is no undelete. */
+.armed {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.noop {
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text-dim);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--text-faint);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.error {
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--danger);
+  border: 1px solid #ff6b8155;
+  background: var(--danger-soft);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+@media (max-width: 620px) {
+  .control {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+}
+
+/* ---- the retype control ---- */
+
+.retype {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px 10px;
+}
+
+.controlLabelInline {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+/* The hint spans both columns, as it does in `.control`. */
+.retype .hint { grid-column: 1 / -1; }
+
+@media (max-width: 620px) {
+  .retype { grid-template-columns: 1fr; }
+}

@@ -64,11 +64,19 @@ export default function FieldIndexReadout() {
         </div>
       ))}
 
-      {world.lastLifecycle?.error != null && (
-        <p className={styles.error} role="status">
-          {world.lastLifecycle.error}
-        </p>
-      )}
+      {/* Scoped to the two lifecycles *this* section drives.
+          `lastLifecycle` is one slot on the world and six actions write it, so
+          without the filter a rename refused in section F would print here too
+          — four screens from the button that caused it, with no context and no
+          way to tell it apart from something this panel did. Section F carries
+          the same filter for the other four. */}
+      {world.lastLifecycle?.error != null &&
+        (world.lastLifecycle.action === 'promote' ||
+          world.lastLifecycle.action === 'demote') && (
+          <p className={styles.error} role="status">
+            {world.lastLifecycle.error}
+          </p>
+        )}
     </div>
   );
 }

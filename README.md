@@ -41,11 +41,16 @@ restore:
   `npm run typecheck` failure rather than a plausible-looking string in a log
   panel or a dropdown. Both are checked-in copies — the engine is a separate
   repository and nothing here can verify them — so when the engine adds one,
-  add it there in the same change. The filter decoder is the one mirror that
-  *can* be checked, and was: a 75-case corpus run through the engine's real
-  `JsonFilterDecoder` agrees with it on error code and JSON Pointer for every
-  case, including three where PHP's inability to tell `{}` from `[]` decides
-  the answer.
+  add it there in the same change. The mirrors that are *behaviour* rather than
+  text can be checked against the engine directly, and two have been. A 75-case
+  corpus run through the real `JsonFilterDecoder` agrees with the decoder on
+  error code and JSON Pointer for every case, including three where PHP's
+  inability to tell `{}` from `[]` decides the answer. A 96-case corpus run
+  through the real `RetypeCoercionEngine` agrees with the ADR 0024 matrix in
+  `lib/sim/backfill.ts` on outcome and reason for **every** case; the only
+  divergences are nine values where JavaScript's single number type cannot
+  represent PHP's distinction (`(float) 42` is `42.0` there and `42` here) or
+  loses integer precision above 2^53.
 - **Reducers are pure.** No `new Date()`, no `Math.random()`, no module-level
   counters: timestamps come from `simNow(world)` and ids from `world.seq`.
   React StrictMode double-invokes reducers, so anything else builds a different

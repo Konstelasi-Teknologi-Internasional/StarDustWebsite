@@ -12,12 +12,16 @@
  *
  * The engine round-robins six sources in a fixed order, and that order is
  * observable in an event stream, so its rule is **new sources append, never
- * insert**. What this file mirrors is that *list*, of which it implements two —
- * so what matters here is the **index**, not the end. `sync_queue` is source 1
- * and `retype_backfill` is source 3. The import-job drain is source 2 and
- * belongs to the operations section; when it lands it goes *between* these two,
- * not after them. Sources 4, 5 and 6 (rename, field purge, model purge) belong
- * to the schema-change section and do append.
+ * insert**. What this file mirrors is that *list*, of which it implements five —
+ * so what matters here is the **index**, not the end. `sync_queue` is source 1,
+ * then `retype_backfill` 3, `rename_backfill` 4, `delete_purge` 5 and
+ * `model_delete_purge` 6. The import-job drain is source **2** and belongs to
+ * the operations section; when it lands it goes *between* the first two, not
+ * on the end.
+ *
+ * **The model purge is last on purpose**, and not merely by arrival order: it
+ * and the sync-queue drain both touch `stardust_sync_queue`, and the engine
+ * puts the destructive one behind the one that keeps writes available.
  *
  * ## Two failure states, and only one of them is here
  *
@@ -29,12 +33,13 @@
  * {@link ./types.ts}. Nothing in a browser contends for a row.
  */
 
+import { advanceCheckpoint, JOB_PREFIXES } from '../checkpoints';
 import { correlationId, emit } from '../emit';
 import { line, type SimEvent } from '../events';
 import {
   applySlotWrites,
   backfillEntry,
-  identityCoerce,
+  coerceForRetype,
   type CoercionNullReason,
 } from '../backfill';
 import { reserveForBackfill, reserveForExhaustion } from '../reserve';
@@ -50,7 +55,36 @@ export const RECONCILER_CHUNK_SIZE = 500;
 export const RECONCILER_WORKERS = 3;
 
 /** The engine's round-robin order, restricted to the sources that exist here. */
-const WORK_SOURCES: WorkSourceName[] = ['sync_queue', 'retype_backfill'];
+const WORK_SOURCES: WorkSourceName[] = [
+  'sync_queue',
+  'retype_backfill',
+  'rename_backfill',
+  'delete_purge',
+  'model_delete_purge',
+];
+
+/**
+ * One tick of one source, for one worker. `null` means "found nothing to
+ * claim", which is different from claiming a chunk and doing nothing with it.
+ */
+type SourceTick = (state: TickState, worker: string, corrId: string) => WorkerClaim | null;
+
+/**
+ * The dispatch, as a total map over {@link WorkSourceName}.
+ *
+ * A `Record` rather than a chain of ternaries, so adding a source to the union
+ * without implementing it is a typecheck failure rather than a silent fall
+ * through to whichever branch happened to be last. That is not hypothetical —
+ * the chain this replaced had the fallthrough case doing the newest source's
+ * work, and a sixth would have inherited it.
+ */
+const SOURCE_TICKS: Record<WorkSourceName, SourceTick> = {
+  sync_queue: (state, worker, corrId) => tickSyncQueue(state, worker, corrId),
+  retype_backfill: (state, worker, corrId) => tickRetypeBackfill(state, worker, corrId),
+  rename_backfill: (state, worker, corrId) => tickRenameBackfill(state, worker, corrId),
+  delete_purge: (state, worker, corrId) => tickDeletePurge(state, worker, corrId),
+  model_delete_purge: (state, worker, corrId) => tickModelPurge(state, worker, corrId),
+};
 
 /** Mutable bookkeeping for one tick, shared across the three workers. */
 interface TickState {
@@ -76,10 +110,7 @@ export function reconcilerTick(world: SimWorld): SimWorld {
 
     for (const source of WORK_SOURCES) {
       const corrId = correlationId('reconciler', world.clock.tick, state.claims.length);
-      const claim =
-        source === 'sync_queue'
-          ? tickSyncQueue(state, worker, corrId)
-          : tickRetypeBackfill(state, worker, corrId);
+      const claim = SOURCE_TICKS[source](state, worker, corrId);
 
       if (claim === null) continue;
 
@@ -452,6 +483,17 @@ function tickRetypeBackfill(
   const chunk = partition.slice(0, RECONCILER_CHUNK_SIZE);
   const isFinalChunk = chunk.length < RECONCILER_CHUNK_SIZE;
 
+  // The matrix cell. `declared_type` was **overwritten by the initiator** in the
+  // same transaction that opened this checkpoint, so the source type cannot be
+  // recovered from the field row — it lives on the checkpoint, which is the
+  // entire reason `backfill_checkpoints.source_declared_type` exists.
+  //
+  // The fallback is the diagonal: a promotion changes no type and writes the
+  // field's own type into the column, so a null here can only be a checkpoint
+  // written before that column did, and reading it as "no change" is right.
+  const targetType = field.declaredType;
+  const sourceType = checkpoint.sourceDeclaredType ?? targetType;
+
   state.world = emit(state.world, (nextSeq, tick): SimEvent[] => [
     line(
       nextSeq(),
@@ -473,7 +515,7 @@ function tickRetypeBackfill(
   const touched = new Map<number, SimEntry>();
 
   for (const entry of chunk) {
-    const coercion = identityCoerce(entry.fields, field.name, field.declaredType);
+    const coercion = coerceForRetype(entry.fields, field.name, sourceType, targetType);
 
     // **The upsert is unconditional, and that is not an accident.** The engine
     // computes `$coercedValue = $outcome->isCoerced() ? $outcome->value() :
@@ -536,8 +578,8 @@ function tickRetypeBackfill(
             correlation_id: corrId,
             field_id: fieldId,
             entry_id: event.entryId,
-            source_type: field.declaredType,
-            target_type: field.declaredType,
+            source_type: sourceType,
+            target_type: targetType,
             reason: event.reason,
           },
           'warn',
@@ -588,4 +630,472 @@ function tickRetypeBackfill(
   });
 
   return { ...claim, claimed: chunk.length, firstId: chunk[0]?.id ?? null, lastId: cursor };
+}
+
+/* ------------------------------------------------------------------ *
+ * Source 4 — RenameBackfillWorkSource
+ * ------------------------------------------------------------------ */
+
+/**
+ * Move one bounded chunk of `entry_data.fields` from a field's pre-rename key
+ * to its current one.
+ *
+ * **No slot is touched, so this source has no `capacity_wait`.** A rename can
+ * never be blocked on inventory; the only outcomes are work done and idle. That
+ * is the one structural difference from source 3, and it is why the deferred
+ * reservation that opens `tickRetypeBackfill()` has no counterpart here.
+ *
+ * ## The rewrite is one statement, not decode-mutate-encode
+ *
+ * The engine issues `JSON_REMOVE(JSON_SET(…))` per chunk rather than decoding
+ * each payload in PHP, because `json_decode($json, true)` is not round-trip
+ * faithful: a payload whose keys form a complete sequential list from zero
+ * re-encodes as a JSON **array**, so `{"0":"x","1":"y"}` silently becomes
+ * `["x","y"]`. Field names are `VARCHAR(128)` with no numeric restriction, so
+ * `"0"` is a legal name and that payload is reachable. JavaScript objects have
+ * no such collapse, so the hazard does not port — but the **two path guards**
+ * that statement carries do, and they are behaviour rather than encoding.
+ */
+function tickRenameBackfill(
+  state: TickState,
+  worker: string,
+  corrId: string,
+): WorkerClaim | null {
+  const checkpoint = state.world.checkpoints.find(
+    c =>
+      c.status === 'running' &&
+      c.jobName.startsWith(JOB_PREFIXES.rename) &&
+      !state.heldJobNames.has(c.jobName),
+  );
+  if (checkpoint === undefined) return null;
+
+  const fieldId = Number(checkpoint.jobName.slice(JOB_PREFIXES.rename.length));
+  const field = state.world.fields.find(f => f.id === fieldId);
+
+  // The claim's integrity predicate: `f.previous_name IS NOT NULL`. Not
+  // idempotence — a checkpoint whose bridge marker was cleared has no old key
+  // to migrate from, so claiming it would scan the whole partition and rewrite
+  // nothing, forever. It is also what an operator-named job could never satisfy.
+  // Deliberately *before* `heldJobNames`, so an unclaimable row does not block
+  // the next worker from reaching a claimable one.
+  if (field === undefined || field.previousName === null) return null;
+
+  state.heldJobNames.add(checkpoint.jobName);
+
+  const previousName = field.previousName;
+  const currentName = field.name;
+
+  // **No `deleted_at` predicate**, matching the engine's `fetchChunkIds()` and
+  // the retype drain. A soft-deleted row can be read by nothing, but leaving it
+  // on the stale key would desynchronise its payload from the registry
+  // permanently — and `deleted_at` is not a hard delete.
+  const partition = state.world.entries
+    .filter(
+      e =>
+        e.tenantId === state.world.tenantId &&
+        e.modelId === field.modelId &&
+        e.id > checkpoint.lastProcessedId,
+    )
+    .sort((a, b) => a.id - b.id);
+
+  const chunk = partition.slice(0, RECONCILER_CHUNK_SIZE);
+  const isFinalChunk = chunk.length < RECONCILER_CHUNK_SIZE;
+
+  state.world = emit(state.world, (nextSeq, tick): SimEvent[] => [
+    line(nextSeq(), tick, 'reconciler', 'chunk_claimed', {
+      correlation_id: corrId,
+      worker,
+      queue: 'rename_backfill',
+      field_id: fieldId,
+      tenant_id: state.world.tenantId,
+      cursor: checkpoint.lastProcessedId,
+    }),
+  ]);
+
+  const touched = new Map<number, SimEntry>();
+  for (const entry of chunk) {
+    // Guard one — the old key is present. Idempotence, and it is what stops a
+    // spurious `newKey: null` being written into rows that never carried the
+    // field at all.
+    if (!(previousName in entry.fields)) continue;
+    // Guard two — the new key is not. A post-rename write wins over the stale
+    // key: `canonicalise()` should already prevent both coexisting, but if they
+    // ever do, the current name is the truth and the backfill must not clobber
+    // it with an older value.
+    if (currentName in entry.fields) continue;
+
+    const fields = { ...entry.fields, [currentName]: entry.fields[previousName] };
+    delete fields[previousName];
+    touched.set(entry.id, { ...entry, fields });
+  }
+
+  const cursor = chunk.length > 0 ? chunk[chunk.length - 1].id : checkpoint.lastProcessedId;
+  const now = simNow(state.world);
+
+  state.world = {
+    ...state.world,
+    entries: state.world.entries.map(e => touched.get(e.id) ?? e),
+    // The final chunk clears the bridge marker, marks the checkpoint completed
+    // and bumps the version **together**. A reader that refreshed its snapshot
+    // between the clear and the bump would lose the fallback while un-migrated
+    // rows still existed.
+    fields: isFinalChunk
+      ? state.world.fields.map(f =>
+          f.id === fieldId ? { ...f, previousName: null, updatedAt: now } : f,
+        )
+      : state.world.fields,
+    schemaVersion: isFinalChunk ? state.world.schemaVersion + 1 : state.world.schemaVersion,
+    schemaVersionUpdatedAt: isFinalChunk ? now : state.world.schemaVersionUpdatedAt,
+  };
+
+  state.world = advanceCheckpoint(state.world, checkpoint.jobName, cursor, isFinalChunk);
+
+  state.world = emit(state.world, (nextSeq, tick): SimEvent[] => {
+    const lines: SimEvent[] = [
+      line(nextSeq(), tick, 'reconciler', 'chunk_complete', {
+        correlation_id: corrId,
+        worker,
+        queue: 'rename_backfill',
+        field_id: fieldId,
+        tenant_id: state.world.tenantId,
+        rows_scanned: chunk.length,
+        rows_rewritten: touched.size,
+        final_chunk: isFinalChunk,
+      }),
+    ];
+
+    if (isFinalChunk) {
+      lines.push(
+        // `registry`, not `reconciler`. The Reconciler did the work; the rename
+        // landing is a registry state change — the same split `promote_to_ready`
+        // makes on the source above.
+        line(nextSeq(), tick, 'registry', 'rename_complete', {
+          correlation_id: corrId,
+          tenant_id: state.world.tenantId,
+          model_id: field.modelId,
+          field_id: fieldId,
+          old_name: previousName,
+          new_name: currentName,
+        }),
+      );
+    }
+
+    return lines;
+  });
+
+  return {
+    worker,
+    source: 'rename_backfill',
+    outcome: 'work_done',
+    claimed: chunk.length,
+    firstId: chunk[0]?.id ?? null,
+    lastId: chunk.length > 0 ? cursor : null,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Source 5 — DeletePurgeWorkSource
+ * ------------------------------------------------------------------ */
+
+/**
+ * Strip one bounded chunk of a deleted field's key out of `entry_data.fields`.
+ *
+ * Structurally the rename drain with one key removed instead of two moved, and
+ * **one path guard instead of two**: `JSON_CONTAINS_PATH` is for idempotence
+ * and an honest `rowCount()` — `JSON_REMOVE` on an absent path is already a
+ * no-op. The rename executor's second guard protects a destination key from a
+ * stale write; a delete has no destination.
+ *
+ * The final chunk is where the whole lifecycle lands: the field row, its
+ * checkpoint row and the version bump commit **together**. Dropping the field
+ * row while the checkpoint survived would strand a `running` row whose join can
+ * no longer resolve — precisely the orphan this feature exists to remove.
+ */
+function tickDeletePurge(
+  state: TickState,
+  worker: string,
+  corrId: string,
+): WorkerClaim | null {
+  const checkpoint = state.world.checkpoints.find(
+    c =>
+      c.status === 'running' &&
+      c.jobName.startsWith(JOB_PREFIXES.deleteField) &&
+      !state.heldJobNames.has(c.jobName),
+  );
+  if (checkpoint === undefined) return null;
+
+  const fieldId = Number(checkpoint.jobName.slice(JOB_PREFIXES.deleteField.length));
+  const field = state.world.fields.find(f => f.id === fieldId);
+
+  // The claim's integrity predicate: `f.deleted_at IS NOT NULL`. A checkpoint
+  // whose marker was cleared has nothing to purge, and no operator-named job
+  // could satisfy it.
+  if (field === undefined || field.deletedAt === null) return null;
+
+  state.heldJobNames.add(checkpoint.jobName);
+
+  const fieldName = field.name;
+
+  // No `deleted_at` predicate on the partition, matching every other drain: a
+  // soft-deleted row can be read by nothing, but leaving its payload carrying a
+  // key whose field no longer exists would desynchronise it from the registry
+  // permanently.
+  const partition = state.world.entries
+    .filter(
+      e =>
+        e.tenantId === state.world.tenantId &&
+        e.modelId === field.modelId &&
+        e.id > checkpoint.lastProcessedId,
+    )
+    .sort((a, b) => a.id - b.id);
+
+  const chunk = partition.slice(0, RECONCILER_CHUNK_SIZE);
+  const isFinalChunk = chunk.length < RECONCILER_CHUNK_SIZE;
+
+  state.world = emit(state.world, (nextSeq, tick): SimEvent[] => [
+    line(nextSeq(), tick, 'reconciler', 'chunk_claimed', {
+      correlation_id: corrId,
+      worker,
+      queue: 'delete_purge',
+      field_id: fieldId,
+      tenant_id: state.world.tenantId,
+      cursor: checkpoint.lastProcessedId,
+    }),
+  ]);
+
+  const touched = new Map<number, SimEntry>();
+  for (const entry of chunk) {
+    if (!(fieldName in entry.fields)) continue;
+    const fields = { ...entry.fields };
+    delete fields[fieldName];
+    touched.set(entry.id, { ...entry, fields });
+  }
+
+  const cursor = chunk.length > 0 ? chunk[chunk.length - 1].id : checkpoint.lastProcessedId;
+  const now = simNow(state.world);
+
+  state.world = {
+    ...state.world,
+    entries: state.world.entries.map(e => touched.get(e.id) ?? e),
+    // The hard delete the whole lifecycle has been working towards. It succeeds
+    // because the initiator's two-step tombstone already released the RESTRICT
+    // foreign key — the slot row survives as sweepable inventory with
+    // `field_id` null, and the Liberator reclaims it without ever joining
+    // `stardust_fields`.
+    fields: isFinalChunk
+      ? state.world.fields.filter(f => f.id !== fieldId)
+      : state.world.fields,
+    schemaVersion: isFinalChunk ? state.world.schemaVersion + 1 : state.world.schemaVersion,
+    schemaVersionUpdatedAt: isFinalChunk ? now : state.world.schemaVersionUpdatedAt,
+  };
+
+  state.world = isFinalChunk
+    ? // `delete()`, not `markCompleted()`. Every other lifecycle leaves an audit
+      // row keyed to a field that still exists; here the field is gone, so a
+      // surviving row is exactly the orphan being eliminated.
+      { ...state.world, checkpoints: state.world.checkpoints.filter(c => c.jobName !== checkpoint.jobName) }
+    : advanceCheckpoint(state.world, checkpoint.jobName, cursor, false);
+
+  state.world = emit(state.world, (nextSeq, tick): SimEvent[] => {
+    const lines: SimEvent[] = [
+      line(nextSeq(), tick, 'reconciler', 'chunk_complete', {
+        correlation_id: corrId,
+        worker,
+        queue: 'delete_purge',
+        field_id: fieldId,
+        tenant_id: state.world.tenantId,
+        rows_scanned: chunk.length,
+        rows_purged: touched.size,
+        final_chunk: isFinalChunk,
+      }),
+    ];
+
+    if (isFinalChunk) {
+      lines.push(
+        line(nextSeq(), tick, 'registry', 'delete_complete', {
+          correlation_id: corrId,
+          tenant_id: state.world.tenantId,
+          model_id: field.modelId,
+          field_id: fieldId,
+          field_name: fieldName,
+        }),
+      );
+    }
+
+    return lines;
+  });
+
+  return {
+    worker,
+    source: 'delete_purge',
+    outcome: 'work_done',
+    claimed: chunk.length,
+    firstId: chunk[0]?.id ?? null,
+    lastId: chunk.length > 0 ? cursor : null,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * Source 6 — ModelPurgeWorkSource
+ * ------------------------------------------------------------------ */
+
+/**
+ * Delete one bounded chunk of a severed model's entries — **rows, not keys**.
+ *
+ * The only drain in the engine that destroys data, and three things about it
+ * diverge from its five siblings:
+ *
+ *   1. **`stardust_sync_queue` rows die in the same chunk transaction.**
+ *      Otherwise the sync-queue drain finds no `entry_data` row for each
+ *      survivor and files a `missing_entry_data` dead letter — the purge
+ *      manufacturing DLQ noise in proportion to pending writes.
+ *   2. **The final chunk probes rather than assumes.** `chunk.length <
+ *      chunkSize` is a hypothesis; a write transaction that opened before
+ *      severance committed carries a pre-severance snapshot for its whole life
+ *      and can commit rows afterwards. `entry_data.id` is auto-increment, so
+ *      those land ahead of the cursor and are normally caught — unless they
+ *      commit after what we thought was the last chunk. One probe turns a
+ *      silent permanent orphan into an extra tick.
+ *   3. **It re-asserts severance rather than trusting it**, with no status
+ *      predicate on the slot sweep: a `tombstoned` row that still holds a
+ *      `field_id` re-breaks the cascade, because the foreign key cares about
+ *      the column and not the status. If ADR 0037's final chunk is wrong one
+ *      row survives; if this one is wrong it fails *after* every earlier chunk
+ *      has already committed its deletes, and there is **no DLQ path by
+ *      design** — quarantining would leave the exact orphan this eliminates.
+ */
+function tickModelPurge(
+  state: TickState,
+  worker: string,
+  corrId: string,
+): WorkerClaim | null {
+  const checkpoint = state.world.checkpoints.find(
+    c =>
+      c.status === 'running' &&
+      c.jobName.startsWith(JOB_PREFIXES.deleteModel) &&
+      !state.heldJobNames.has(c.jobName),
+  );
+  if (checkpoint === undefined) return null;
+
+  const modelId = Number(checkpoint.jobName.slice(JOB_PREFIXES.deleteModel.length));
+  const model = state.world.models.find(m => m.id === modelId);
+
+  // The integrity predicate, and here it guards an unrecoverable DELETE rather
+  // than a spurious key removal — which is why the engine carries it *and*
+  // escapes its LIKE pattern.
+  if (model === undefined || model.deletedAt === null) return null;
+
+  state.heldJobNames.add(checkpoint.jobName);
+
+  const partition = state.world.entries
+    .filter(
+      e =>
+        e.tenantId === state.world.tenantId &&
+        e.modelId === modelId &&
+        e.id > checkpoint.lastProcessedId,
+    )
+    .sort((a, b) => a.id - b.id);
+
+  const chunk = partition.slice(0, RECONCILER_CHUNK_SIZE);
+
+  state.world = emit(state.world, (nextSeq, tick): SimEvent[] => [
+    line(nextSeq(), tick, 'reconciler', 'chunk_claimed', {
+      correlation_id: corrId,
+      worker,
+      queue: 'model_delete_purge',
+      model_id: modelId,
+      tenant_id: state.world.tenantId,
+      cursor: checkpoint.lastProcessedId,
+    }),
+  ]);
+
+  const doomed = new Set(chunk.map(e => e.id));
+  const syncRowsDeleted = state.world.syncQueue.filter(r => doomed.has(r.entryId)).length;
+  const cursor = chunk.length > 0 ? chunk[chunk.length - 1].id : checkpoint.lastProcessedId;
+  const now = simNow(state.world);
+
+  state.world = {
+    ...state.world,
+    // The extension-page rows go with them. In the engine that is a CASCADE off
+    // `entry_data`; here the page values live on the entry, so it is the same
+    // delete.
+    entries: state.world.entries.filter(e => !doomed.has(e.id)),
+    syncQueue: state.world.syncQueue.filter(r => !doomed.has(r.entryId)),
+  };
+
+  // The E0 probe. Cheap, and the difference between an extra tick and a
+  // permanent orphan.
+  const remaining = state.world.entries.some(
+    e => e.tenantId === state.world.tenantId && e.modelId === modelId && e.id > cursor,
+  );
+  const finalising = chunk.length < RECONCILER_CHUNK_SIZE && !remaining;
+
+  let fieldsDropped = 0;
+  if (finalising) {
+    // Re-assert severance. No status predicate, deliberately.
+    state.world = {
+      ...state.world,
+      slots: state.world.slots.map(s =>
+        s.fieldId !== null &&
+        state.world.fields.some(f => f.id === s.fieldId && f.modelId === modelId)
+          ? { ...s, fieldId: null, updatedAt: now }
+          : s,
+      ),
+    };
+
+    fieldsDropped = state.world.fields.filter(f => f.modelId === modelId).length;
+
+    state.world = {
+      ...state.world,
+      // `fk_fields_model` is ON DELETE CASCADE, so dropping the model row takes
+      // every field row with it. Spelled out rather than implied, because the
+      // cascade is the reason nothing here deletes fields one at a time.
+      models: state.world.models.filter(m => m.id !== modelId),
+      fields: state.world.fields.filter(f => f.modelId !== modelId),
+      checkpoints: state.world.checkpoints.filter(c => c.jobName !== checkpoint.jobName),
+      schemaVersion: state.world.schemaVersion + 1,
+      schemaVersionUpdatedAt: now,
+    };
+  } else {
+    state.world = advanceCheckpoint(state.world, checkpoint.jobName, cursor, false);
+  }
+
+  state.world = emit(state.world, (nextSeq, tick): SimEvent[] => {
+    const lines: SimEvent[] = [
+      line(nextSeq(), tick, 'reconciler', 'chunk_complete', {
+        correlation_id: corrId,
+        worker,
+        queue: 'model_delete_purge',
+        model_id: modelId,
+        tenant_id: state.world.tenantId,
+        rows_scanned: chunk.length,
+        rows_deleted: chunk.length,
+        sync_rows_deleted: syncRowsDeleted,
+        final_chunk: finalising,
+        fields_dropped: fieldsDropped,
+      }),
+    ];
+
+    if (finalising) {
+      lines.push(
+        line(nextSeq(), tick, 'registry', 'model_delete_complete', {
+          correlation_id: corrId,
+          tenant_id: state.world.tenantId,
+          model_id: modelId,
+          fields_dropped: fieldsDropped,
+        }),
+      );
+    }
+
+    return lines;
+  });
+
+  return {
+    worker,
+    source: 'model_delete_purge',
+    outcome: 'work_done',
+    claimed: chunk.length,
+    firstId: chunk[0]?.id ?? null,
+    lastId: chunk.length > 0 ? cursor : null,
+  };
 }

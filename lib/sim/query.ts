@@ -40,6 +40,21 @@ export interface QueryRun {
   wireError: FilterError | null;
   /** The exact envelope that ran, so the panel never re-derives it. */
   ranText: string;
+  /**
+   * The model is not visible to reads at all — deleting, or gone.
+   *
+   * A fourth outcome, and it is **not** a rejection: ADR 0038 has a read
+   * against a severed model return *nothing*, indistinguishable from a model
+   * that never existed, rather than raising. There is no snapshot to reject
+   * against and no SQL was built, so `outcome` and `rejection` are both null —
+   * which without this flag is the same shape as "nothing has run yet", and the
+   * panel would go on showing the previous successful result over a model whose
+   * rows are being destroyed.
+   *
+   * Optional so an older snapshot's `lastRun` reads as `undefined` and forces
+   * no `SIM_SCHEMA_VERSION` bump.
+   */
+  dark?: boolean;
 }
 
 export interface QueryDraft {

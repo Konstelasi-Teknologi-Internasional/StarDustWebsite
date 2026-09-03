@@ -1,6 +1,8 @@
 'use client';
 
 import { DAEMON_NAMES } from '@/lib/sim/clock';
+import { runningPurges } from '@/lib/sim/delete';
+import { runningRenames } from '@/lib/sim/rename';
 import { runningPromotions } from '@/lib/sim/retype';
 import { usePlayground } from './PlaygroundContext';
 import styles from './NowLine.module.css';
@@ -34,13 +36,38 @@ export default function NowLine() {
   // ceremony, and a guard on two of the three reads would be worse: it reads
   // as though the third were an oversight.
   const queued = world.syncQueue.length;
-  const promotions = runningPromotions(world);
   const stopped = DAEMON_NAMES.filter(name => world.clock.paused[name]);
 
   const parts: string[] = [];
 
-  for (const promotion of promotions) {
+  // **All four drains, not just the backfill.** This shipped knowing only about
+  // promotions, which was complete when it was written and stopped being so the
+  // moment section F landed — and the omission would have bitten hardest
+  // exactly where this line is most needed, since a rename or a purge runs
+  // *further* from the clock bar than a promotion does and announces less on
+  // the way. A visitor who stops the Reconciler mid-rename and scrolls away
+  // would have had a bar reading "nothing in flight" over a half-migrated
+  // world. Anything that later opens a fifth kind of checkpoint belongs here in
+  // the same change.
+  for (const promotion of runningPromotions(world)) {
     parts.push(`${promotion.fieldName} building ${promotion.cursor}/${promotion.total}`);
+  }
+
+  for (const rename of runningRenames(world)) {
+    parts.push(
+      `${rename.previousName} → ${rename.currentName} rewriting ${rename.cursor}/${rename.total}`,
+    );
+  }
+
+  for (const purge of runningPurges(world)) {
+    parts.push(
+      purge.kind === 'field'
+        ? `${purge.label} purging ${purge.cursor}/${purge.total}`
+        : // The model purge's denominator counts *down* as the chunks delete
+          // what they claim, so a cursor/total pair would read as going
+          // backwards. The remaining count is the honest figure.
+          `${purge.label} deleting · ${purge.total} rows left`,
+    );
   }
 
   if (queued > 0) {

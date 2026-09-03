@@ -137,12 +137,40 @@ export interface SimSequences {
   event: number;
 }
 
-/** What `promoteFieldToFilterable()` / `demoteFieldFromFilterable()` reported. */
+/**
+ * What the last lifecycle call reported.
+ *
+ * Grown rather than reshaped, and deliberately: `fieldId` widened from `number`
+ * to `number | null` and `action` gained two members, both of which every
+ * persisted value still satisfies. Replacing the pair with a tagged `target`
+ * would have read better and would have forced a `SIM_SCHEMA_VERSION` bump —
+ * discarding a returning visitor's schema to buy a nicer union.
+ */
 export interface LifecycleOutcome {
-  fieldId: number;
-  action: 'promote' | 'demote';
+  /** Null for a model-scoped call, which names no field. */
+  fieldId: number | null;
+  /** Set by the model-scoped calls; absent for the field ones. */
+  modelId?: number;
+  action:
+    | 'promote'
+    | 'demote'
+    | 'retype'
+    | 'rename-field'
+    | 'rename-model'
+    | 'delete-field'
+    | 'delete-model';
   /** Null on success. The engine's exception message otherwise. */
   error: string | null;
+  /**
+   * The deletions only, and it is not the same thing as `error === null`.
+   *
+   * They return `false` rather than throwing when there is nothing to do — an
+   * unknown id, another tenant's, or a deletion already in flight, three cases
+   * deliberately made indistinguishable. Without this the panel could not tell
+   * "severed" from "that did nothing", and the second is the one worth saying
+   * out loud, because a typo in an id is otherwise silent.
+   */
+  noop?: boolean;
 }
 
 export interface SimWorld {

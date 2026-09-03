@@ -18,6 +18,7 @@ import NarrationFeed from './NarrationFeed';
 import { PlaygroundProvider } from './PlaygroundContext';
 import QueryBuilder from './QueryBuilder';
 import { ScenarioStrip } from './ScenarioPicker';
+import SchemaEvolver from './SchemaEvolver';
 import SimulationNotice from './SimulationNotice';
 import TableInspector from './TableInspector';
 import { useNarration } from './useNarration';
@@ -144,6 +145,8 @@ export default function Playground() {
           <DaemonRoom />
 
           <QueryBuilder />
+
+          <SchemaEvolver />
         </div>
       </main>
       <Footer />

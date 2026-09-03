@@ -19,8 +19,10 @@ import { liberatorTick } from './daemons/liberator';
 import { reconcilerTick } from './daemons/reconciler';
 import { watcherTick } from './daemons/watcher';
 import { emptyDraft, nextFieldName, type DraftField } from './draft';
+import { deleteField, deleteModel } from './delete';
 import { correlationId } from './emit';
-import { demoteField, promoteField } from './retype';
+import { renameField, renameModel } from './rename';
+import { demoteField, promoteField, retypeField } from './retype';
 import {
   emptyPayloadDraft,
   nextUnknownKeyName,
@@ -98,6 +100,17 @@ export type SimAction =
   | { type: 'field/promote'; fieldId: number }
   /** `$stardust->demoteFieldFromFilterable($tenantId, $fieldId)`. */
   | { type: 'field/demote'; fieldId: number }
+  /** `$stardust->retypeField($tenantId, $fieldId, $newDeclaredType)`. */
+  | { type: 'field/retype'; fieldId: number; declaredType: DeclaredType }
+  /* ---- the schema-change lifecycles ---- */
+  /** `$stardust->renameField($tenantId, $fieldId, $newName)` — async, drains. */
+  | { type: 'field/rename'; fieldId: number; name: string }
+  /** `$stardust->renameModel($tenantId, $modelId, $newName)` — synchronous. */
+  | { type: 'model/rename'; modelId: number; name: string }
+  /** `$stardust->deleteField($tenantId, $fieldId)` — severs now, purges later. */
+  | { type: 'field/delete'; fieldId: number }
+  /** `$stardust->deleteModel($tenantId, $modelId)`. Destroys rows. No undelete. */
+  | { type: 'model/delete'; modelId: number }
   /* ---- the query builder ---- */
   | { type: 'query/selectModel'; modelId: number }
   | { type: 'query/addCondition'; fieldName: string }
@@ -437,6 +450,79 @@ function apply(world: SimWorld, action: SimAction): SimWorld {
       };
     }
 
+    case 'field/retype': {
+      const corrId = correlationId('api', world.clock.tick, world.seq.event);
+      const result = retypeField(world, action.fieldId, action.declaredType, corrId);
+      return {
+        ...result.world,
+        // Reported under the same `promote`/`demote` shape the readout already
+        // renders, because a retype *is* the same tuple — the only difference
+        // is which of its two targets moved.
+        lastLifecycle: { fieldId: action.fieldId, action: 'retype', error: result.error },
+      };
+    }
+
+    /* ---------------- the schema-change lifecycles ---------------- */
+
+    case 'field/rename': {
+      const corrId = correlationId('api', world.clock.tick, world.seq.event);
+      const result = renameField(world, action.fieldId, action.name, corrId);
+      return {
+        ...result.world,
+        lastLifecycle: {
+          fieldId: action.fieldId,
+          action: 'rename-field',
+          error: result.error,
+        },
+      };
+    }
+
+    case 'model/rename': {
+      const corrId = correlationId('api', world.clock.tick, world.seq.event);
+      const result = renameModel(world, action.modelId, action.name, corrId);
+      return {
+        ...result.world,
+        lastLifecycle: {
+          fieldId: null,
+          modelId: action.modelId,
+          action: 'rename-model',
+          error: result.error,
+        },
+      };
+    }
+
+    case 'field/delete': {
+      const corrId = correlationId('api', world.clock.tick, world.seq.event);
+      const result = deleteField(world, action.fieldId, corrId);
+      return {
+        ...result.world,
+        lastLifecycle: {
+          fieldId: action.fieldId,
+          action: 'delete-field',
+          error: result.error,
+          // `false` with no error is the engine returning false. Carried
+          // because it is otherwise invisible: nothing changes and nothing is
+          // logged, so a visitor could not tell it from a failure.
+          noop: !result.deleted && result.error === null,
+        },
+      };
+    }
+
+    case 'model/delete': {
+      const corrId = correlationId('api', world.clock.tick, world.seq.event);
+      const result = deleteModel(world, action.modelId, corrId);
+      return {
+        ...result.world,
+        lastLifecycle: {
+          fieldId: null,
+          modelId: action.modelId,
+          action: 'delete-model',
+          error: result.error,
+          noop: !result.deleted && result.error === null,
+        },
+      };
+    }
+
     /* ---------------- the query builder ---------------- */
 
     case 'query/selectModel':
@@ -734,10 +820,24 @@ function runQuery(world: SimWorld, cursors: string[]): SimWorld {
   );
 
   // A null rejection means the snapshot itself was missing — an unknown or
-  // deleting model, which the model picker cannot currently produce. Leaving
-  // the draft alone is the honest response: nothing ran, so nothing is
-  // reported.
-  if (!result.ok && result.rejection === null) return next;
+  // **deleting** model. That parenthetical used to read "which the model picker
+  // cannot currently produce", and section F made it false: a visitor can
+  // select a model here, delete it there, and come back. Leaving the draft
+  // alone is then the *dishonest* response — the panel would keep rendering the
+  // previous successful result over a model whose rows are being deleted. It is
+  // recorded as its own outcome instead, because going dark is the designed
+  // behaviour and has to look deliberate rather than broken.
+  if (!result.ok && result.rejection === null) {
+    return {
+      ...next,
+      queryDraft: {
+        ...draft,
+        cursors,
+        wireError: null,
+        lastRun: { outcome: null, rejection: null, wireError: null, ranText, dark: true },
+      },
+    };
+  }
 
   return {
     ...next,

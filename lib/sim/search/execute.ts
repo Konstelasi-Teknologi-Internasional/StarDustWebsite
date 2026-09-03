@@ -67,7 +67,11 @@ export interface SearchRequest {
 export interface SearchRow {
   id: number;
   createdAt: string;
-  /** `entry_data.fields`, verbatim. The payload is the system of record. */
+  /**
+   * The **snapshot's** fields, not the stored payload. See
+   * {@link projectFields} — this used to be `entry_data.fields` verbatim, which
+   * was wrong in three separate ways.
+   */
   fields: Record<string, unknown>;
 }
 
@@ -219,7 +223,7 @@ function execute(world: SimWorld, request: SearchRequest, snapshot: Snapshot): S
   const byId = new Map(candidates.map(e => [e.id, e]));
   const rows: SearchRow[] = pageIds.map(id => {
     const entry = byId.get(id) as SimEntry;
-    return { id: entry.id, createdAt: entry.createdAt, fields: entry.fields };
+    return { id: entry.id, createdAt: entry.createdAt, fields: projectFields(entry, snapshot) };
   });
 
   const lastId = pageIds[pageIds.length - 1];
@@ -236,6 +240,71 @@ function execute(world: SimWorld, request: SearchRequest, snapshot: Snapshot): S
     matchedCount: matched.length,
     treeNodeCount: nodeCount(request.filter),
   };
+}
+
+/**
+ * `ResultAssembler::assemble()` — build one row's fields from the snapshot.
+ *
+ * **This is a projection over the registry, not the stored document**, and that
+ * distinction is the whole of it. It shipped returning `entry.fields` verbatim,
+ * which was wrong three times over and was found by reading the engine's
+ * assembler rather than by reading this file:
+ *
+ *   1. **Unknown keys do not appear in a read.** The engine iterates
+ *      `array_keys($snapshot->fieldsByName)`, so a payload key with no registry
+ *      row is invisible here. It is still stored, still returned by the point
+ *      read and still in a JSON export artifact — which is the property section
+ *      C teaches, and section B is where you see it. Showing it *here* made the
+ *      two sections disagree about what a read returns.
+ *   2. **A field absent from the payload materialises as `null`**, rather than
+ *      as a missing key. ADR 0013 permits the omission; the read still has a
+ *      column for it.
+ *   3. **A field with no registry row can no longer leak.** That is what makes
+ *      a deleted field disappear from results the instant severance commits,
+ *      months of purge later — the delete window's headline claim, which the
+ *      verbatim payload would have quietly contradicted.
+ *
+ * Two sources, in the engine's order:
+ *
+ *   - **The slot column**, whenever the field has a queryable slot. Note this
+ *     can legitimately differ from the payload: the write path coerces for the
+ *     column and stores the raw value in JSON, so `{"qty": "42"}` on an `int`
+ *     field reads back as the number `42` here and as the string `"42"` in
+ *     section B's `entry_data`. That is the engine, not a rounding error.
+ *   - **The payload**, for everything else — `backfilling`, tombstoned, and
+ *     every JSON-only field. Sourcing from the decoded payload is exactly a
+ *     `JSON_EXTRACT(fields, '$.<name>')` projection: same bytes, no slot.
+ *
+ * The ADR 0036 fallback is on the payload branch's miss path only. While a
+ * rename is draining, rows behind the cursor are still keyed by the old name,
+ * and a single-path lookup on the new one would return null for every un-migrated
+ * row — silently, and for the whole window. It costs one key test on a miss and
+ * disappears when the backfill clears `previous_name`.
+ */
+function projectFields(entry: SimEntry, snapshot: Snapshot): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+
+  for (const [name, field] of Object.entries(snapshot.fieldsByName)) {
+    if (field.isIndexedNow && field.pageId !== null && field.slotColumn !== null) {
+      // A LEFT JOIN: an entry with no row on the page yields null rather than
+      // dropping out of the result. Reachable for a slot reserved through the
+      // ADR 0007 exhaustion path, whose backfill covers only the queued rows.
+      out[name] = entry.slots[field.pageId]?.[field.slotColumn] ?? null;
+      continue;
+    }
+
+    if (name in entry.fields) {
+      out[name] = entry.fields[name];
+      continue;
+    }
+
+    out[name] =
+      field.previousName !== null && field.previousName in entry.fields
+        ? entry.fields[field.previousName]
+        : null;
+  }
+
+  return out;
 }
 
 function anchorIdOf(request: SearchRequest): number | null {

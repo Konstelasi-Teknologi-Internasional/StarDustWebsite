@@ -30,8 +30,21 @@ import type { DaemonName } from '../clock';
  */
 export type TickOutcome = 'work_done' | 'idle' | 'capacity_wait';
 
-/** The Reconciler's work sources, in the engine's round-robin order. */
-export type WorkSourceName = 'sync_queue' | 'retype_backfill';
+/**
+ * The Reconciler's work sources, in the engine's round-robin order.
+ *
+ * The engine runs six and the order is observable in an event stream, so its
+ * rule is **new sources append, never insert**. That rule is about *its* list,
+ * which this one mirrors — so what matters is the **index**, not the end. The
+ * import-job drain is source 2 and belongs to the operations section; when it
+ * lands it goes *between* `sync_queue` and `retype_backfill`, not after them.
+ */
+export type WorkSourceName =
+  | 'sync_queue'
+  | 'retype_backfill'
+  | 'rename_backfill'
+  | 'delete_purge'
+  | 'model_delete_purge';
 
 export interface WorkerClaim {
   /** `w1` … `w3`. Stands in for the engine's `host:pid:uuid`. */

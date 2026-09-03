@@ -26,32 +26,45 @@
  * that produces a tombstone, which is what gives the Liberator work.
  */
 
+import {
+  checkpointFor,
+  jobNameFor,
+  lifecycleConflict,
+  runningCheckpointFor,
+  upsertCheckpoint,
+  JOB_PREFIXES,
+} from './checkpoints';
 import { emit } from './emit';
 import { line, type SimEvent } from './events';
 import { reserveForBackfill, tombstoneLiveSlot } from './reserve';
-import type { SimCheckpoint } from './types';
+import { isCategoricallyRejected } from './backfill';
+import type { DeclaredType, SimCheckpoint } from './types';
 import { simNow, type SimWorld } from './world';
 
-/** The thirteen-character namespace prefix. All four are the same length. */
-export const RETYPE_JOB_PREFIX = 'retype_field_';
+/**
+ * The thirteen-character namespace prefix. All four are the same length, which
+ * is what lets every claim query share one substring offset — see
+ * {@link ./checkpoints.ts}, which now owns all four and the exclusivity rule
+ * they enforce between them.
+ */
+export const RETYPE_JOB_PREFIX = JOB_PREFIXES.retype;
 
 export function retypeJobName(fieldId: number): string {
-  return `${RETYPE_JOB_PREFIX}${fieldId}`;
+  return jobNameFor('retype', fieldId);
 }
 
 export function checkpointForField(
   world: SimWorld,
   fieldId: number,
 ): SimCheckpoint | undefined {
-  return world.checkpoints.find(c => c.jobName === retypeJobName(fieldId));
+  return checkpointFor(world, 'retype', fieldId);
 }
 
 export function runningCheckpointForField(
   world: SimWorld,
   fieldId: number,
 ): SimCheckpoint | undefined {
-  const checkpoint = checkpointForField(world, fieldId);
-  return checkpoint?.status === 'running' ? checkpoint : undefined;
+  return runningCheckpointFor(world, 'retype', fieldId);
 }
 
 /** A backfill in flight: the checkpoint, and the partition it is draining. */
@@ -131,7 +144,7 @@ export function promoteField(
   fieldId: number,
   correlationId: string,
 ): InitiateResult {
-  return initiate(world, fieldId, true, correlationId);
+  return initiate(world, fieldId, { isFilterable: true }, correlationId);
 }
 
 /** `$stardust->demoteFieldFromFilterable($tenantId, $fieldId)`. */
@@ -140,19 +153,51 @@ export function demoteField(
   fieldId: number,
   correlationId: string,
 ): InitiateResult {
-  return initiate(world, fieldId, false, correlationId);
+  return initiate(world, fieldId, { isFilterable: false }, correlationId);
+}
+
+/**
+ * `$stardust->retypeField($tenantId, $fieldId, $newDeclaredType)`.
+ *
+ * The third shape of the same tuple, and the only one that migrates *data*: the
+ * declared type is overwritten immediately, the old one is stashed on the
+ * checkpoint, and the Reconciler rewrites every slot value in the model through
+ * the ADR 0024 matrix cell those two names pick out.
+ *
+ * **Filterability is deliberately not a parameter here.** A retype carries the
+ * field's current `is_filterable` forward, exactly as the engine does when
+ * `$newIsFilterable` is null — combining the two in one call would make the
+ * tuple's four shapes eight, and the two questions are asked at different times
+ * by different people.
+ */
+export function retypeField(
+  world: SimWorld,
+  fieldId: number,
+  newDeclaredType: DeclaredType,
+  correlationId: string,
+): InitiateResult {
+  return initiate(world, fieldId, { declaredType: newDeclaredType }, correlationId);
+}
+
+/** What the caller is changing. Anything omitted is carried forward unchanged. */
+interface RetypeTarget {
+  declaredType?: DeclaredType;
+  isFilterable?: boolean;
 }
 
 function initiate(
   world: SimWorld,
   fieldId: number,
-  targetIsFilterable: boolean,
+  target: RetypeTarget,
   correlationId: string,
 ): InitiateResult {
   const field = world.fields.find(f => f.id === fieldId);
-  if (field === undefined || field.deletedAt !== null) {
+  if (field === undefined) {
     return { world, error: `RetypeInitiator: field ${fieldId} does not exist.` };
   }
+
+  const targetDeclaredType = target.declaredType ?? field.declaredType;
+  const targetIsFilterable = target.isFilterable ?? field.isFilterable;
 
   // The engine refuses an overlapping lifecycle rather than queueing it. A
   // second promotion while the first is still draining would reset a live
@@ -164,7 +209,35 @@ function initiate(
     };
   }
 
-  if (field.isFilterable === targetIsFilterable) {
+  // The other two legs, in the engine's fixed rename → retype → delete order.
+  // The rename leg matters for a reason a filterability change makes easy to
+  // miss: the backfill executor locates values by field *name*, so mid-rename
+  // every un-migrated row reads as "value absent" and its slot is written NULL,
+  // silently, with no `coercion_null` because no coercion was attempted.
+  //
+  // This check used to be folded into the existence test above as
+  // `field.deletedAt !== null`, which reported a deleting field as one that
+  // does not exist. It is a different fact and now says so.
+  const conflict = lifecycleConflict(world, field, 'retype');
+  if (conflict !== null) return { world, error: conflict };
+
+  // **The categorical refusal, ahead of every mutation.** ADR 0024 declines
+  // `int↔datetime` and `numeric↔datetime` rather than choosing between seconds
+  // since the epoch, milliseconds, a packed `YYYYMMDD` and a Julian day — all
+  // defensible, all different, and a wrong guess would be silent.
+  if (isCategoricallyRejected(field.declaredType, targetDeclaredType)) {
+    return {
+      world,
+      error:
+        `IncompatibleRetypeException: ${field.declaredType} → ${targetDeclaredType} is ` +
+        'categorically rejected; there is no defensible epoch convention to pick.',
+    };
+  }
+
+  if (
+    field.declaredType === targetDeclaredType &&
+    field.isFilterable === targetIsFilterable
+  ) {
     return {
       world,
       error: `RetypeInitiator: field '${field.name}' is already is_filterable = ${targetIsFilterable ? 1 : 0}.`,
@@ -179,7 +252,14 @@ function initiate(
   let next: SimWorld = {
     ...world,
     fields: world.fields.map(f =>
-      f.id === fieldId ? { ...f, isFilterable: targetIsFilterable, updatedAt: now } : f,
+      f.id === fieldId
+        ? {
+            ...f,
+            declaredType: targetDeclaredType,
+            isFilterable: targetIsFilterable,
+            updatedAt: now,
+          }
+        : f,
     ),
   };
 
@@ -202,6 +282,8 @@ function initiate(
       world: emitRetypeStarted(next, {
         correlationId,
         fieldId,
+        oldDeclaredType: field.declaredType,
+        newDeclaredType: targetDeclaredType,
         oldIsFilterable,
         newIsFilterable: targetIsFilterable,
         oldSlotId,
@@ -233,12 +315,19 @@ function initiate(
   // promote → demote → promote fail on the third call with a duplicate key,
   // and the running-check above offers no protection because it reports false
   // for a terminal row.
-  next = upsertCheckpoint(next, fieldId, field.declaredType, now);
+  //
+  // `sourceDeclaredType` is passed rather than defaulted. A promotion changes
+  // no type, so it is the field's own — the ADR 0024 identity diagonal. Letting
+  // it default to null here would drain a *second* lifecycle through the wrong
+  // matrix cell with no event and no exception.
+  next = upsertCheckpoint(next, 'retype', fieldId, now, field.declaredType);
 
   return {
     world: emitRetypeStarted(next, {
       correlationId,
       fieldId,
+      oldDeclaredType: field.declaredType,
+      newDeclaredType: targetDeclaredType,
       oldIsFilterable,
       newIsFilterable: targetIsFilterable,
       oldSlotId,
@@ -249,55 +338,13 @@ function initiate(
   };
 }
 
-/**
- * `RetypeCheckpointRepository::insertOrReset()`.
- *
- * `sourceDeclaredType` is reset along with the rest of the row. No sibling
- * namespace has that column, so porting one of their upserts verbatim leaves a
- * second lifecycle draining against the *first* one's source type — the wrong
- * matrix cell, with no event and no exception. It is the identity diagonal for
- * a promotion either way, which is exactly why getting it wrong here would be
- * invisible until the schema-change section lands.
- */
-function upsertCheckpoint(
-  world: SimWorld,
-  fieldId: number,
-  sourceDeclaredType: SimCheckpoint['sourceDeclaredType'],
-  now: string,
-): SimWorld {
-  const jobName = retypeJobName(fieldId);
-  const existing = world.checkpoints.find(c => c.jobName === jobName);
-
-  const row: SimCheckpoint = {
-    id: existing?.id ?? world.seq.checkpoint,
-    jobName,
-    lastProcessedId: 0,
-    status: 'running',
-    startedAt: now,
-    updatedAt: now,
-    completedAt: null,
-    lastError: null,
-    sourceDeclaredType,
-  };
-
-  return {
-    ...world,
-    checkpoints:
-      existing === undefined
-        ? [...world.checkpoints, row]
-        : world.checkpoints.map(c => (c.jobName === jobName ? row : c)),
-    seq:
-      existing === undefined
-        ? { ...world.seq, checkpoint: world.seq.checkpoint + 1 }
-        : world.seq,
-  };
-}
-
 function emitRetypeStarted(
   world: SimWorld,
   fields: {
     correlationId: string;
     fieldId: number;
+    oldDeclaredType: DeclaredType;
+    newDeclaredType: DeclaredType;
     oldIsFilterable: boolean;
     newIsFilterable: boolean;
     oldSlotId: number | null;
@@ -315,6 +362,8 @@ function emitRetypeStarted(
         correlation_id: fields.correlationId,
         tenant_id: world.tenantId,
         field_id: fields.fieldId,
+        old_declared_type: fields.oldDeclaredType,
+        new_declared_type: fields.newDeclaredType,
         old_is_filterable: fields.oldIsFilterable,
         new_is_filterable: fields.newIsFilterable,
         old_slot_assignment_id: fields.oldSlotId,

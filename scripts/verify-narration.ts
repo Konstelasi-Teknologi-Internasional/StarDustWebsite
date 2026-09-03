@@ -108,6 +108,33 @@ drive('dlq', [
   ...Array.from({ length: 12 }, (): SimAction => ({ type: 'clock/tick' })),
 ]);
 
+/** A two-field model with a handful of rows, nothing filterable. */
+function smallModel(): SimAction[] {
+  return [
+    { type: 'world/reset' },
+    { type: 'draft/setName', name: 'places' },
+    { type: 'draft/addField', declaredType: 'string' },
+    { type: 'draft/patchField', key: 'd1', patch: { name: 'city' } },
+    { type: 'draft/addField', declaredType: 'string' },
+    { type: 'draft/patchField', key: 'd2', patch: { name: 'country' } },
+    { type: 'registry/createModel' },
+    { type: 'payload/selectModel', modelId: 1 },
+    { type: 'entry/seed', count: 3 },
+  ];
+}
+
+const tick: SimAction = { type: 'clock/tick' };
+
+// Both halves of a field deletion. Neither is reachable from a scenario: the
+// half-migrated world parks on a rename, and nothing else here deletes.
+console.log('\nfield deletion, severed and purged');
+drive('delete field', [...smallModel(), { type: 'field/delete', fieldId: 1 }, tick, tick]);
+
+// And the model half, whose two milestones say markedly different things —
+// severance is what makes reads go dark, and the purge is what destroys rows.
+console.log('\nmodel deletion, severed and purged');
+drive('delete model', [...smallModel(), { type: 'model/delete', modelId: 1 }, tick, tick]);
+
 console.log('');
 for (const kind of MILESTONE_KINDS) {
   if (seen.has(kind)) continue;

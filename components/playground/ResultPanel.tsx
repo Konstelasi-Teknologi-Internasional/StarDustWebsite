@@ -36,6 +36,32 @@ export default function ResultPanel() {
     );
   }
 
+  // The fourth outcome, and it is not a refusal. A model being deleted has no
+  // snapshot to reject against: ADR 0038 has the read return *nothing*,
+  // indistinguishable from a model that never existed. Rendering the previous
+  // result — which is what happened before this branch existed — would show
+  // rows over a model whose rows are being destroyed.
+  if (run.dark === true) {
+    return (
+      <div className={`panel ${styles.panel}`}>
+        <div className="panel-head">
+          <span>result · nothing</span>
+          <span className="tag tag-pending">
+            <span className="dot" />
+            model not visible to reads
+          </span>
+        </div>
+        <p className={styles.resultEmpty}>
+          Not an error — <strong>nothing</strong>. This model is being deleted, and a
+          read against it returns exactly what a read against a model id that never
+          existed returns. There is no exception to catch and no rejection to log,
+          which is deliberate: severance is total, and a consumer polling a deleted
+          model should see it empty rather than learn that it once existed.
+        </p>
+      </div>
+    );
+  }
+
   if (run.rejection !== null) {
     const { rejection } = run;
     return (

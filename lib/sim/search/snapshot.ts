@@ -38,6 +38,15 @@ export interface SnapshotField {
   slotColumn: string | null;
   /** The live slot's status, for the panel that has to explain a rejection. */
   slotStatus: string | null;
+  /**
+   * ADR 0036: the pre-rename key, while a rename is draining.
+   *
+   * The read path needs it and nothing else does — a filter resolves leaves by
+   * *current* name and is deliberately not bridged, so this rides the snapshot
+   * for exactly one consumer: the projection in `execute.ts`, which falls back
+   * to this key for rows the backfill has not reached.
+   */
+  previousName: string | null;
 }
 
 export interface Snapshot {
@@ -66,6 +75,7 @@ export function snapshotForModel(world: SimWorld, modelId: number): Snapshot | n
       pageId: slot?.pageId ?? null,
       slotColumn: slot?.slotColumn ?? null,
       slotStatus: slot?.status ?? null,
+      previousName: field.previousName,
     };
   }
 

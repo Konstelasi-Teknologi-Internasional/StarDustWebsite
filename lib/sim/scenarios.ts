@@ -32,13 +32,14 @@
  *    the visitors most in need of being handed a parked world.
  */
 
+import { checkpointFor } from './checkpoints';
 import type { MilestoneKind } from './notify';
 import { isIndexedSlot } from './reserve';
 import { runningCheckpointForField } from './retype';
 import type { SimAction } from './reduce';
 import { fieldIndexState, fieldsOf, type SimWorld } from './world';
 
-export type ScenarioId = 'promotion-window' | 'warm-path';
+export type ScenarioId = 'promotion-window' | 'warm-path' | 'half-migrated';
 
 export interface Scenario {
   id: ScenarioId;
@@ -428,7 +429,180 @@ const WARM_PATH: Scenario = {
   ],
 };
 
-export const SCENARIOS: readonly Scenario[] = [PROMOTION_WINDOW, WARM_PATH];
+/**
+ * The rename window, stopped inside it.
+ *
+ * The one scenario here whose first click is not **run**. A rename touches no
+ * slot, so there is no daemon to start and no capacity to wait for: the world is
+ * already in the interesting state the instant it loads, and what the visitor
+ * does first is *read* across it. That is also why `nextStepReduced` is the same
+ * sentence as `nextStep` — reduced motion disables the ticker, and this payoff
+ * asks for no ticks at all until its third stage.
+ *
+ * Nothing is paused except the Reconciler, deliberately. The Watcher and
+ * Liberator run throughout and do nothing, and `assertParked` checks that they
+ * did nothing — zero pages, zero slots — which is a stronger statement of "a
+ * rename touches no slot" than pausing them would have been.
+ */
+const HALF_MIGRATED: Scenario = {
+  id: 'half-migrated',
+  title: 'The half-migrated world',
+  blurb: 'A field renamed under 600 rows, with the Reconciler stopped in the middle of the rewrite.',
+  parked:
+    'city was renamed to locality · the registry already says locality · 500 payloads have been rewritten and 100 are still stored under city · stardust_fields.previous_name holds the old name · the Reconciler is stopped. No page and no slot exist, because a rename touches neither.',
+  nextStep:
+    'Run a read in the query builder. Every row comes back on locality — including the hundred still stored as city, which the read resolves through the fallback. Then resume the Reconciler and press run to finish the rewrite.',
+  // Identical on purpose: the first two stages need no tick, so there is no
+  // disabled button to steer anyone away from.
+  nextStepReduced:
+    'Run a read in the query builder. Every row comes back on locality — including the hundred still stored as city, which the read resolves through the fallback. Then resume the Reconciler and press step to finish the rewrite.',
+  anchor: '#query',
+  anchorLabel: 'the query builder',
+  actions: [
+    ...placesModel(),
+    // Synchronous: the registry flips and the checkpoint opens before this
+    // action returns. Every one of the 600 payloads is still keyed `city`.
+    { type: 'field/rename', fieldId: CITY, name: 'locality' },
+    // The Reconciler is due at tick 2 and rewrites exactly one 500-row chunk.
+    ...ticks(2),
+    // Stopped *after* that chunk, which is what leaves the world half-migrated.
+    // Two ticks earlier and there would be no window; two later and it would
+    // have closed.
+    { type: 'daemon/togglePaused', daemon: 'reconciler' },
+  ],
+  assertParked(world) {
+    const bad: string[] = [];
+    const say = (ok: boolean, msg: string) => {
+      if (!ok) bad.push(msg);
+    };
+
+    say(world.clock.tick === 2, `expected to park at tick 2, got ${world.clock.tick}`);
+    say(world.clock.paused.reconciler, 'expected the Reconciler to be stopped');
+    say(world.entries.length === 600, `expected 600 entries, got ${world.entries.length}`);
+
+    // A rename touches no slot. Neither of these is incidental: if a page ever
+    // appears here, something in the rename path has started asking for
+    // capacity it must never need.
+    say(world.pages.length === 0, `expected no page, got ${world.pages.length}`);
+    say(world.slots.length === 0, `expected no slot rows, got ${world.slots.length}`);
+
+    const field = world.fields.find(f => f.id === CITY);
+    say(field?.name === 'locality', `expected the registry to say locality, got '${field?.name}'`);
+    say(
+      field?.previousName === 'city',
+      `expected previous_name to hold city, got '${field?.previousName ?? 'null'}'`,
+    );
+
+    const checkpoint = checkpointFor(world, 'rename', CITY);
+    say(checkpoint?.status === 'running', `expected a running rename checkpoint, got '${checkpoint?.status ?? 'none'}'`);
+    say(
+      checkpoint?.lastProcessedId === 500,
+      `expected the cursor at 500, got ${checkpoint?.lastProcessedId ?? 'none'}`,
+    );
+
+    // **The fixture proof, and it is not optional.** Every other assertion in
+    // this scenario and its payoff is of the form "the API still answers
+    // correctly", which passes for free if the rewrite already finished. These
+    // two are what make the rest mean anything.
+    const migrated = world.entries.filter(e => 'locality' in e.fields).length;
+    const stale = world.entries.filter(e => 'city' in e.fields).length;
+    say(migrated === 500, `expected 500 rewritten payloads, got ${migrated}`);
+    say(stale === 100, `expected 100 payloads still on the old key, got ${stale}`);
+
+    return bad;
+  },
+  payoff: [
+    {
+      label: 'a read across the window returns every row on the new name',
+      actions: [
+        { type: 'query/selectModel', modelId: 1 },
+        // Descending, so page one is ids 600…576 — every one of them *behind*
+        // the backfill cursor. Ascending would return the migrated rows and the
+        // fallback would never be exercised: a passing test of nothing.
+        { type: 'query/setSort', target: 'id', fieldName: null, direction: 'desc' },
+        { type: 'query/run' },
+      ],
+      assert(world) {
+        const bad: string[] = [];
+        const rows = world.queryDraft.lastRun?.outcome?.rows ?? [];
+
+        if (rows.length === 0) {
+          return ['expected a page of rows, got none'];
+        }
+
+        // The row itself is still stored under the old key — asserted here
+        // rather than only in the park, because this stage is the one claiming
+        // the read bridged something.
+        const newest = world.entries.find(e => e.id === rows[0].id);
+        if (newest === undefined || !('city' in newest.fields)) {
+          bad.push('expected the newest row to still be stored under city');
+        }
+        if (newest !== undefined && 'locality' in newest.fields) {
+          bad.push('expected the newest row NOT to have been rewritten yet');
+        }
+
+        // And it comes back on the new name anyway. This is the fallback.
+        const missing = rows.filter(r => r.fields.locality == null).length;
+        if (missing > 0) {
+          bad.push(`expected every row to resolve locality, got ${missing} null(s)`);
+        }
+        // The old key must not appear in a read result at all: the projection
+        // is over the snapshot, and the snapshot knows only the current name.
+        if (rows.some(r => 'city' in r.fields)) {
+          bad.push('expected no row to carry the old key in the result');
+        }
+        return bad;
+      },
+    },
+    {
+      label: 'a filter on the old name is refused, and not bridged',
+      actions: filterCityIs('aurora-600'),
+      narrates: ['filter-refused'],
+      assert(world) {
+        const code = world.queryDraft.lastRun?.rejection?.errorCode;
+        // `field_unknown`, not `field_not_filterable`: as far as the registry
+        // is concerned there is no field called city any more. Writes converge
+        // on the new name and filters fail loudly — the asymmetry is the
+        // decision, because a rejected filter loses nothing and a mis-keyed
+        // write loses data.
+        return code === 'field_unknown'
+          ? []
+          : [`expected field_unknown, got '${code ?? 'no rejection'}'`];
+      },
+    },
+    {
+      label: 'resuming the Reconciler rewrites the last hundred and retires the bridge',
+      actions: [{ type: 'daemon/togglePaused', daemon: 'reconciler' }, ...ticks(2)],
+      narrates: ['rename-landed'],
+      assert(world) {
+        const bad: string[] = [];
+
+        const field = world.fields.find(f => f.id === CITY);
+        if (field?.previousName !== null) {
+          bad.push(`expected previous_name cleared, got '${field?.previousName ?? 'no field'}'`);
+        }
+
+        const checkpoint = checkpointFor(world, 'rename', CITY);
+        if (checkpoint?.status !== 'completed') {
+          bad.push(`expected a completed checkpoint, got '${checkpoint?.status ?? 'none'}'`);
+        }
+
+        const stale = world.entries.filter(e => 'city' in e.fields).length;
+        if (stale !== 0) bad.push(`expected no payload left on the old key, got ${stale}`);
+
+        const migrated = world.entries.filter(e => 'locality' in e.fields).length;
+        if (migrated !== 600) bad.push(`expected all 600 rewritten, got ${migrated}`);
+
+        if (!world.events.some(e => e.event === 'rename_complete')) {
+          bad.push('expected a rename_complete line in the log');
+        }
+        return bad;
+      },
+    },
+  ],
+};
+
+export const SCENARIOS: readonly Scenario[] = [PROMOTION_WINDOW, WARM_PATH, HALF_MIGRATED];
 
 export function scenarioById(id: ScenarioId): Scenario | undefined {
   return SCENARIOS.find(s => s.id === id);
