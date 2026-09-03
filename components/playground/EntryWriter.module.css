@@ -37,7 +37,14 @@
 }
 
 @media (max-width: 900px) {
-  .grid { grid-template-columns: 1fr; }
+  /* `minmax(0, 1fr)`, not bare `1fr`. A bare `1fr` track's implicit minimum is
+     `auto` — the max-content width of whatever sits in it — and `.side` holds
+     a `CodeBlock`, whose `<pre>` does not wrap. At narrow widths that forced
+     this single column, and the page under it, wider than the viewport
+     instead of letting `CodeBlock`'s own `overflow-x: auto` contain it. The
+     desktop definition above already gets this right per column; the
+     override just needs to keep it. */
+  .grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .formPanel { display: flex; flex-direction: column; }
@@ -338,7 +345,10 @@ input.payloadKey {
 }
 
 @media (max-width: 900px) {
-  .seedBody { grid-template-columns: 1fr; }
+  /* Same fix as `.grid` above, for the same reason: this column also holds a
+     `CodeBlock`, and a bare `1fr` track cannot shrink below its content's
+     max-content width. */
+  .seedBody { grid-template-columns: minmax(0, 1fr); }
 }
 
 .seedBody p {
