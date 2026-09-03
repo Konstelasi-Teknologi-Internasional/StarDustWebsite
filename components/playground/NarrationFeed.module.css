@@ -1,0 +1,192 @@
+/* The dock sits above the page and below the fly layer (z-index 60), which
+   throws ghosts across the viewport during a write and must stay on top. The
+   nav is 40 and the clock bar 20; both are at the top of the screen, so
+   nothing here can collide with them. */
+.dock {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  width: min(360px, calc(100vw - 40px));
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  pointer-events: none;
+}
+
+/* Only the surfaces themselves take clicks — the gaps between them let the
+   page underneath scroll and be selected as though the dock were not there. */
+.dock > * {
+  pointer-events: auto;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card {
+  background: var(--bg-raised);
+  padding: 11px 12px 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Sentence case, body typeface, no braces. This must not read as NDJSON —
+   the event log is the engine's voice and this one is the page's. */
+.headline {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  flex: 1;
+}
+
+.detail {
+  margin-top: 5px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.count {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-style: normal;
+  color: var(--text-faint);
+  flex: none;
+}
+
+.close {
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  flex: none;
+}
+.close:hover { color: var(--text); }
+
+.jump {
+  display: inline-block;
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--accent);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+
+/* The palette's three semantic colours, reused rather than re-picked. */
+.neutral { color: var(--text-faint); }
+.good    { color: var(--indexed); }
+.warn    { color: var(--pending); }
+
+/* ---------- the drawer ---------- */
+
+.toggle {
+  align-self: flex-end;
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.toggle:hover { border-color: var(--border-hover); color: var(--text); }
+
+.drawer {
+  background: var(--bg-raised);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.drawerBody {
+  max-height: min(42vh, 320px);
+  overflow-y: auto;
+}
+
+.past {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+.past:last-child { border-bottom: 0; }
+.past:hover { background: var(--panel-2); color: var(--text); }
+
+.pastText {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.pastWhere {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+/* Says whose limit the list is under, on the same rule TableView and EventLog
+   follow: a silently shortened list on a page about real rows is worse than a
+   long one. */
+.drawerFoot {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+/* On a phone the dock spans the width and the drawer gives up more of it than
+   the cards do — a stack of three is already most of a small screen. */
+@media (max-width: 640px) {
+  .dock {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+  .drawerBody { max-height: 34vh; }
+
+  /* One card, not three. At this width a card is full-bleed, so a stack of
+     three covers most of the screen — including the section it is pointing
+     at, which makes the jump link land on something the feed is hiding. The
+     older ones are still in the drawer; the cap itself stays at three,
+     because it is about how much a visitor can take in rather than about how
+     wide the screen is. */
+  .stack > :not(:last-child) { display: none; }
+}
+
+/* The site's rule is to jump to the settled end state rather than animate to
+   it. Nothing here animates in, and nothing retires on a timer either — that
+   half is in `useNarration`, because a card that expires before the next
+   **step** is a card nobody read. */
+@media (prefers-reduced-motion: reduce) {
+  .card, .drawer { box-shadow: none; }
+}

@@ -22,7 +22,7 @@
  */
 
 import { emit } from './emit';
-import { detail, line } from './events';
+import { line } from './events';
 import type { SimSlot, SlotFamily, SlotStatus } from './types';
 import {
   FAMILY_OF,
@@ -185,7 +185,7 @@ function reserveCore(
         tick,
         'registry',
         'slot_reserved',
-        detail({
+        {
           correlation_id: correlationId,
           field_id: fieldId,
           slot_assignment_id: assignment.slotAssignmentId,
@@ -194,7 +194,7 @@ function reserveCore(
           slot_type: assignment.slotType,
           status,
           affinity: assignment.affinity,
-        }),
+        },
       ),
     ]),
     assignment,

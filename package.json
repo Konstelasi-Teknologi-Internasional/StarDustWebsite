@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "verify:scenarios": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-scenarios.js"
+    "verify:scenarios": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-scenarios.js",
+    "verify:narration": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-narration.js"
   },
   "dependencies": {
     "next": "15.5.4",

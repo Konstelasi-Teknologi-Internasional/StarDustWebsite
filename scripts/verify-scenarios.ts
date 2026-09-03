@@ -17,6 +17,7 @@
  * Run with `npm run verify:scenarios`.
  */
 
+import { coalesce, milestonesSince, readPosition } from '../lib/sim/notify';
 import { reduce } from '../lib/sim/reduce';
 import { SCENARIOS } from '../lib/sim/scenarios';
 import { emptyWorld } from '../lib/sim/world';
@@ -43,20 +44,56 @@ for (const scenario of SCENARIOS) {
     continue;
   }
 
+  // The feed coalesces **within one commit**, because that is the unit a
+  // visitor perceives as a single moment — one `clock/tick` folds every due
+  // daemon. Measuring it over the whole fold instead would report a collapse
+  // the hook never performs, so this replays action by action and reports the
+  // worst single commit, which is the only number the cap has to survive.
+  let busiest = 0;
+  let stepping = emptyWorld();
+  for (const action of scenario.actions) {
+    const mark = readPosition(stepping);
+    stepping = reduce(stepping, action);
+    busiest = Math.max(busiest, coalesce(milestonesSince(stepping, mark)).length);
+  }
+
   console.log(
     `✓ ${scenario.id} — ${scenario.title}\n` +
       `    parked: ${scenario.actions.length} actions · tick ${world.clock.tick} · ` +
       `${world.models.length} model(s), ${world.entries.length} entries, ` +
       `${world.pages.length} page(s), ${world.slots.length} slots, ` +
-      `${world.events.length} log lines`,
+      `${world.events.length} log lines\n` +
+      `    narration: at most ${busiest} card(s) from any one commit`,
   );
 
   // Parking correctly and promising correctly are different claims. The strip
   // tells the visitor what happens when they click; this is that, run.
   let stageWorld = world;
   for (const stage of scenario.payoff) {
+    // The read position, taken before the stage runs. `seq` is monotonic, so
+    // this is the same one-number cursor the feed itself uses — the script and
+    // the page therefore ask exactly the same question, rather than the script
+    // approximating it.
+    const mark = readPosition(stageWorld);
+
     stageWorld = stage.actions.reduce(reduce, stageWorld);
     const stageFailures = stage.assert(stageWorld);
+
+    // A stage can fire exactly as asserted and narrate nothing, which on a
+    // five-section page reads as nothing having happened. No other check here
+    // can see that: they all read the world rather than what the visitor was
+    // told about it.
+    if (stage.narrates !== undefined) {
+      const said = milestonesSince(stageWorld, mark).map(m => m.kind);
+      for (const kind of stage.narrates) {
+        if (!said.includes(kind)) {
+          stageFailures.push(
+            `expected the feed to say '${kind}', got [${said.join(', ') || 'nothing'}]`,
+          );
+        }
+      }
+    }
+
     if (stageFailures.length > 0) {
       failed = true;
       console.error(`  ✗ payoff · ${stage.label}`);

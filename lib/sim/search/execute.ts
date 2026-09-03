@@ -38,7 +38,7 @@
  */
 
 import { emit } from '../emit';
-import { detail } from '../events';
+import { line } from '../events';
 import { nodeCount, isLeaf, type FilterNode, type FilterScalar, type LeafNode } from '../filter/ast';
 import type { DeclaredType, SimEntry } from '../types';
 import type { SimWorld } from '../world';
@@ -121,17 +121,16 @@ export function runSearch(
   const outcome = execute(world, request, snapshot);
 
   const next = emit(world, (nextSeq, tick) => [
-    {
-      seq: nextSeq(),
+    line(
+      nextSeq(),
       tick,
-      level: 'info' as const,
-      source: 'api' as const,
-      event: 'search_request' as const,
+      'api',
+      'search_request',
       // No `latency_ms`. The engine measures one with `hrtime()`; the
       // simulation has nothing to measure, and a plausible millisecond count
       // would be a fabricated number in the one panel whose whole claim is
       // that these are the engine's own lines.
-      detail: detail({
+      {
         correlation_id: correlationId,
         tenant_id: request.tenantId,
         model_id: request.modelId,
@@ -140,8 +139,8 @@ export function runSearch(
         has_more: outcome.hasMore,
         tree_node_count: outcome.treeNodeCount,
         compile_strategy: outcome.strategy,
-      }),
-    },
+      },
+    ),
   ]);
 
   return { world: next, result: { ok: true, outcome } };
@@ -154,21 +153,21 @@ function emitRejection(
   request: SearchRequest,
 ): SimWorld {
   return emit(world, (nextSeq, tick) => [
-    {
-      seq: nextSeq(),
+    line(
+      nextSeq(),
       tick,
-      level: 'warn' as const,
-      source: 'api' as const,
-      event: rejection.event,
-      detail: detail({
+      'api',
+      rejection.event,
+      {
         correlation_id: correlationId,
         tenant_id: request.tenantId,
         ...(rejection.event === 'capability_unsupported'
           ? { operator: rejection.operator ?? '', driver_class: 'MysqlNativeDriver' }
           : { reason: rejection.reason }),
         field_name: rejection.fieldName,
-      }),
-    },
+      },
+      'warn',
+    ),
   ]);
 }
 

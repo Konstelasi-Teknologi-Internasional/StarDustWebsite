@@ -24,7 +24,7 @@
  */
 
 import { correlationId, emit } from '../emit';
-import { detail, line, type SimEvent } from '../events';
+import { line, type SimEvent } from '../events';
 import type { SimEntry, SimSlot } from '../types';
 import { simNow, type SimWorld } from '../world';
 
@@ -49,7 +49,7 @@ export function liberatorTick(world: SimWorld): SimWorld {
       tick,
       'liberator',
       'sweep_started',
-      detail({ correlation_id: corrId, batch_size: batch.length }),
+      { correlation_id: corrId, batch_size: batch.length },
     ),
   ]);
 
@@ -191,12 +191,12 @@ function sweepOneChunk(
           tick,
           'liberator',
           'sweep_chunk',
-          detail({
+          {
             correlation_id: corrId,
             slot_assignment_id: slot.id,
             rows_nullified: candidates.length,
             sweep_cursor_id: newCursor,
-          }),
+          },
         ),
       ];
       if (isFinalChunk) {
@@ -206,11 +206,11 @@ function sweepOneChunk(
             tick,
             'liberator',
             'sweep_complete',
-            detail({
+            {
               correlation_id: corrId,
               slot_assignment_id: slot.id,
               sweep_cursor_id: newCursor,
-            }),
+            },
           ),
         );
       }

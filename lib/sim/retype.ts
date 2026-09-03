@@ -27,7 +27,7 @@
  */
 
 import { emit } from './emit';
-import { detail, line, type SimEvent } from './events';
+import { line, type SimEvent } from './events';
 import { reserveForBackfill, tombstoneLiveSlot } from './reserve';
 import type { SimCheckpoint } from './types';
 import { simNow, type SimWorld } from './world';
@@ -52,6 +52,58 @@ export function runningCheckpointForField(
 ): SimCheckpoint | undefined {
   const checkpoint = checkpointForField(world, fieldId);
   return checkpoint?.status === 'running' ? checkpoint : undefined;
+}
+
+/** A backfill in flight: the checkpoint, and the partition it is draining. */
+export interface PromotionProgress {
+  fieldId: number;
+  fieldName: string;
+  checkpoint: SimCheckpoint;
+  /** `last_processed_id` — an entry id, not a row count. */
+  cursor: number;
+  /** Rows in the partition. Derived here; no table stores it. */
+  total: number;
+}
+
+/**
+ * Every backfill currently running, with the denominator its progress is
+ * measured against.
+ *
+ * `backfill_checkpoints` stores a cursor and a status and nothing else, so a
+ * total is something whoever owns the partition derives — `CheckpointBar`'s
+ * docblock is explicit that computing one inside the component "would mean
+ * inventing a column". This is that derivation, done once. Two surfaces need
+ * it now (the section D readout and the clock bar's running summary) and two
+ * copies of it would be free to disagree about which rows count.
+ *
+ * Note `cursor` is an entry **id**, not a row count, so it is only a
+ * denominator-compatible numerator while ids are dense — which they are here,
+ * because nothing in the playground deletes an entry mid-backfill. The same
+ * caveat the Liberator's sweep bar carries.
+ */
+export function runningPromotions(world: SimWorld): PromotionProgress[] {
+  const out: PromotionProgress[] = [];
+
+  for (const checkpoint of world.checkpoints) {
+    if (checkpoint.status !== 'running') continue;
+    if (!checkpoint.jobName.startsWith(RETYPE_JOB_PREFIX)) continue;
+
+    const fieldId = Number(checkpoint.jobName.slice(RETYPE_JOB_PREFIX.length));
+    const field = world.fields.find(f => f.id === fieldId);
+    if (field === undefined) continue;
+
+    out.push({
+      fieldId,
+      fieldName: field.name,
+      checkpoint,
+      cursor: checkpoint.lastProcessedId,
+      total: world.entries.filter(
+        e => e.modelId === field.modelId && e.tenantId === world.tenantId,
+      ).length,
+    });
+  }
+
+  return out;
 }
 
 export interface InitiateResult {
@@ -259,7 +311,7 @@ function emitRetypeStarted(
       tick,
       'registry',
       'retype_started',
-      detail({
+      {
         correlation_id: fields.correlationId,
         tenant_id: world.tenantId,
         field_id: fields.fieldId,
@@ -272,7 +324,7 @@ function emitRetypeStarted(
         // leaves the new slot null but is *complete*, not deferred, and
         // reporting it as deferred would show permanent phantom backlog.
         deferred_assignment: fields.backfillRequired && fields.newSlotId === null,
-      }),
+      },
     ),
   ]);
 }

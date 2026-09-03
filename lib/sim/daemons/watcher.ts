@@ -23,7 +23,7 @@
  */
 
 import { correlationId, emit } from '../emit';
-import { detail, line, type SimEvent } from '../events';
+import { line, type SimEvent } from '../events';
 import { provisionPage } from '../page';
 import {
   CAPACITY_THRESHOLD,
@@ -46,7 +46,7 @@ export function watcherTick(world: SimWorld): SimWorld {
       tick,
       'watcher',
       'poll_started',
-      detail({
+      {
         correlation_id: corrId,
         free_ratio: round4(globalFreeRatio(snapshot)),
         threshold: CAPACITY_THRESHOLD,
@@ -59,7 +59,7 @@ export function watcherTick(world: SimWorld): SimWorld {
         pending_demand: demand.families.map(f => `${f}:${demand.waiters[f].length}`).join(',') || 'none',
         pending_waiters: demand.totalWaiters,
         starved_families: plan.starvedFamilies.join(',') || 'none',
-      }),
+      },
     ),
   ]);
 
@@ -75,12 +75,12 @@ export function watcherTick(world: SimWorld): SimWorld {
         tick,
         'watcher',
         'provision_started',
-        detail({
+        {
           correlation_id: corrId,
           trigger: plan.trigger,
           indexed_columns: plan.indexedColumns.join(',') || 'none',
           pending_waiters: demand.totalWaiters,
-        }),
+        },
       ),
     ]);
 
@@ -94,12 +94,12 @@ export function watcherTick(world: SimWorld): SimWorld {
         tick,
         'watcher',
         'provision_complete',
-        detail({
+        {
           correlation_id: corrId,
           page_id: provisioned.pageId,
           trigger: plan.trigger,
           indexed_columns: plan.indexedColumns.join(',') || 'none',
-        }),
+        },
       ),
     ]);
 
@@ -112,7 +112,7 @@ export function watcherTick(world: SimWorld): SimWorld {
       tick,
       'watcher',
       'poll_complete',
-      detail({ correlation_id: corrId, action, trigger: plan.trigger }),
+      { correlation_id: corrId, action, trigger: plan.trigger },
     ),
   ]);
 

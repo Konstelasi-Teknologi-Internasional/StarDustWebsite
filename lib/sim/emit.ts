@@ -9,7 +9,13 @@
  * one-rule-one-place discipline exists to prevent.
  */
 
-import { line, type EventName, type EventSource, type SimEvent } from './events';
+import {
+  line,
+  type EventFields,
+  type EventName,
+  type EventSource,
+  type SimEvent,
+} from './events';
 import type { SimWorld } from './world';
 
 /**
@@ -39,11 +45,11 @@ export function emitOne(
   world: SimWorld,
   source: EventSource,
   event: EventName,
-  detailText = '',
+  fields: EventFields = {},
   level: SimEvent['level'] = 'info',
 ): SimWorld {
   return emit(world, (nextSeq, tick) => [
-    line(nextSeq(), tick, source, event, detailText, level),
+    line(nextSeq(), tick, source, event, fields, level),
   ]);
 }
 

@@ -105,10 +105,30 @@ export type EventSource = (typeof EVENT_SOURCES)[number];
 export type EventLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
- * One NDJSON line. `detail` holds the source-specific fields ADR 0020 layers
- * on top of the required ones — `page_id`, `rows_processed`, `queue`, and so
- * on — as already-rendered `key=value` text, because the log panel shows them
- * verbatim rather than querying them.
+ * ADR 0020's source-specific fields — the ones each source layers on top of
+ * the required four: `page_id`, `rows_processed`, `queue`, and so on.
+ *
+ * Held structurally rather than as text. That is not how this started: emit
+ * sites used to call `detail()` themselves and store only its output, which
+ * put *rendering* in the hands of the emitter and left the fields unreadable
+ * to anything but a human. `notify.ts` is the second reader, and parsing a
+ * rendered string back into pairs would be reaching into another module's
+ * output format — lossily, since a value may contain a space.
+ */
+export type EventFields = Record<string, string | number | boolean | null>;
+
+/**
+ * One NDJSON line.
+ *
+ * `fields` is the structured payload; `detail` is that same payload rendered
+ * as the `key=value` text the log panel shows verbatim. Both are stored, and
+ * the redundancy is deliberate: {@link line} is the only writer of either, so
+ * `detail` is a cache rather than a second source of truth — and keeping it
+ * means a snapshot written before `fields` existed still renders exactly as it
+ * did, which is what lets this change land without a `SIM_SCHEMA_VERSION`
+ * bump. Such a line has no `fields`, so it narrates nothing; correct, since
+ * narration is about what just happened rather than about scrolled-past
+ * history.
  */
 export interface SimEvent {
   /** Monotonic, assigned by the world. Not part of the wire shape. */
@@ -117,6 +137,8 @@ export interface SimEvent {
   level: EventLevel;
   source: EventSource;
   event: EventName;
+  /** Absent on lines restored from a snapshot older than this member. */
+  fields: EventFields;
   detail: string;
 }
 
@@ -124,16 +146,21 @@ export interface SimEvent {
  * Construct a log line. Deliberately takes `seq` rather than generating one:
  * a module-level counter would not survive a world reset, and would make the
  * reducers impure under StrictMode's double-invoke.
+ *
+ * The **only** constructor of a {@link SimEvent}. Building one as an object
+ * literal skips `renderDetail()` and produces a line whose `detail` and
+ * `fields` can disagree, which is the drift the two-member shape above is
+ * only safe without.
  */
 export function line(
   seq: number,
   tick: number,
   source: EventSource,
   event: EventName,
-  detail = '',
+  fields: EventFields = {},
   level: EventLevel = 'info',
 ): SimEvent {
-  return { seq, tick, level, source, event, detail };
+  return { seq, tick, level, source, event, fields, detail: renderDetail(fields) };
 }
 
 /**
@@ -143,13 +170,16 @@ export function line(
  * Hand-writing those strings at every emit site is a drift surface — the
  * engine's own field names are the thing being mirrored, and a typo in one of
  * them is invisible in a way a bad event *name* is not, because only the name
- * is typechecked. One helper means the shape is written once.
+ * is typechecked. One renderer means the shape is written once.
  *
  * Insertion order is preserved, `true`/`false` render as PHP would log them,
  * and `null` renders as `null` rather than being omitted — an absent field and
  * a null one are different things in a log line.
+ *
+ * Private on purpose: it is called once, by {@link line}. Exporting it invites
+ * an emit site to pre-render its own text again.
  */
-export function detail(fields: Record<string, string | number | boolean | null>): string {
+function renderDetail(fields: EventFields): string {
   return Object.entries(fields)
     .map(([key, value]) => `${key}=${value === null ? 'null' : String(value)}`)
     .join(' ');

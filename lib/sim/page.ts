@@ -23,7 +23,7 @@
  */
 
 import { emit } from './emit';
-import { detail, line } from './events';
+import { line } from './events';
 import { allSlotColumns, familyOfColumn } from './ddl';
 import type { SimPage, SimSlot } from './types';
 import { simNow, type SimWorld } from './world';
@@ -95,12 +95,12 @@ export function provisionPage(
         tick,
         'registry',
         'page_provisioned',
-        detail({
+        {
           correlation_id: correlationId,
           page_id: pageId,
           table_name: page.tableName,
           filterable_slots: indexedColumns.join(',') || 'none',
-        }),
+        },
       ),
     ]),
     pageId,

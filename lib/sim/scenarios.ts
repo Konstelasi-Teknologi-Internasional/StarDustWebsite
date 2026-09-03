@@ -32,6 +32,7 @@
  *    the visitors most in need of being handed a parked world.
  */
 
+import type { MilestoneKind } from './notify';
 import { isIndexedSlot } from './reserve';
 import { runningCheckpointForField } from './retype';
 import type { SimAction } from './reduce';
@@ -92,6 +93,22 @@ export interface PayoffStage {
   label: string;
   actions: SimAction[];
   assert(world: SimWorld): string[];
+  /**
+   * The milestones this stage must put in front of a visitor.
+   *
+   * A third claim, distinct from the two above. Parking correctly is not
+   * promising correctly, and *promising* correctly is not *narrating*
+   * correctly: a stage can fire exactly as asserted while the feed says
+   * nothing at all, which on a five-section page is indistinguishable from
+   * nothing having happened. That failure is invisible to every other check
+   * here, because every other check reads the world rather than what the
+   * visitor was told about it.
+   *
+   * Checked as a subset, not an equality — a stage that additionally narrates
+   * something true is not a regression, and pinning the exact set would make
+   * every new entry in `notify.ts`'s map break unrelated scenarios.
+   */
+  narrates?: MilestoneKind[];
 }
 
 /** The filter both scenarios use: one leaf, one seeded value, at the root. */
@@ -214,6 +231,9 @@ const PROMOTION_WINDOW: Scenario = {
     {
       label: 'a filter on city is refused at pre-flight',
       actions: filterCityIs('aurora-1'),
+      // The refusal is the setup, and the visitor has to be told it happened
+      // — they may well have run it from four sections away.
+      narrates: ['filter-refused'],
       assert(world) {
         const run = world.queryDraft.lastRun;
         const code = run?.rejection?.errorCode;
@@ -225,6 +245,13 @@ const PROMOTION_WINDOW: Scenario = {
     {
       label: 'starting the Watcher provisions, reserves and drains one chunk',
       actions: [{ type: 'daemon/togglePaused', daemon: 'watcher' }, { type: 'clock/tick' }],
+      // Two things a visitor cannot see at once: a page appeared in section B
+      // and a column was claimed on it. Deliberately *not* `lifecycle-started`
+      // — `city` was promoted back in the parked prefix, with the Watcher
+      // already stopped, so that milestone is three ticks in the past by the
+      // time this stage runs and the strip is what explains it. Asserting it
+      // here is the mistake this list is good at catching.
+      narrates: ['page-provisioned', 'slot-reserved'],
       assert(world) {
         const bad: string[] = [];
         // The whole point of the 600-row seed: the window has to be *visible*,
@@ -244,6 +271,9 @@ const PROMOTION_WINDOW: Scenario = {
     {
       label: 'two more ticks finish it and the slot flips to ready',
       actions: ticks(2),
+      // The headline of the whole page. If nothing else here narrates, this
+      // must.
+      narrates: ['field-indexed'],
       assert(world) {
         const bad: string[] = [];
         if (fieldIndexState(world, CITY) !== 'live') {
@@ -352,6 +382,10 @@ const WARM_PATH: Scenario = {
     {
       label: 'promoting country reserves the recycled slot with no tick at all',
       actions: [{ type: 'field/promote', fieldId: COUNTRY }],
+      // The warm path's whole claim is that this happens inside the promoting
+      // transaction. The slot-reserved card is the visible half of that, and
+      // its absence would mean the reservation was deferred after all.
+      narrates: ['slot-reserved', 'lifecycle-started'],
       assert(world) {
         const bad: string[] = [];
 
@@ -379,8 +413,13 @@ const WARM_PATH: Scenario = {
 
         // The engine's own word for "reserved inside the promoting
         // transaction" rather than handed to the Watcher.
+        // Read off the structured payload rather than out of the rendered
+        // line. A substring match on `detail` would also have passed for a
+        // field named `deferred_assignment=false-ish`, and more to the point
+        // it asserted on the log's *formatting* rather than on what was
+        // logged.
         const started = world.events.filter(e => e.event === 'retype_started').slice(-1)[0];
-        if (started === undefined || !started.detail.includes('deferred_assignment=false')) {
+        if (started?.fields.deferred_assignment !== false) {
           bad.push('expected retype_started to report deferred_assignment=false');
         }
         return bad;

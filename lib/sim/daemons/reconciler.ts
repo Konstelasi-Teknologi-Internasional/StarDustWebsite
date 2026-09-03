@@ -30,7 +30,7 @@
  */
 
 import { correlationId, emit } from '../emit';
-import { detail, line, type SimEvent } from '../events';
+import { line, type SimEvent } from '../events';
 import {
   applySlotWrites,
   backfillEntry,
@@ -175,12 +175,12 @@ function tickSyncQueue(
       tick,
       'reconciler',
       'chunk_claimed',
-      detail({
+      {
         correlation_id: corrId,
         worker,
         queue: 'sync_queue',
         rows_claimed: rows.length,
-      }),
+      },
     ),
   ]);
 
@@ -256,12 +256,12 @@ function tickSyncQueue(
             tick,
             'reconciler',
             'dlq_inserted',
-            detail({
+            {
               correlation_id: corrId,
               entry_id: row.entryId,
               reason: row.reason,
               message: row.errorMessage,
-            }),
+            },
             'warn',
           ),
         );
@@ -276,13 +276,13 @@ function tickSyncQueue(
         // every survivor succeeded. Two names, because "some of it worked" is
         // a different operational fact from "all of it did".
         dlq.length > 0 ? 'chunk_partial' : 'chunk_complete',
-        detail({
+        {
           correlation_id: corrId,
           worker,
           queue: 'sync_queue',
           rows_processed: processed,
           rows_dlq: dlq.length,
-        }),
+        },
       ),
     );
     return lines;
@@ -349,13 +349,13 @@ function rollBackAndReserve(
       tick,
       'reconciler',
       'capacity_wait',
-      detail({
+      {
         correlation_id: corrId,
         worker: claim.worker,
         queue: 'sync_queue',
         rows_claimed: claim.claimed,
         awaiting: [...names].join(',') || 'none',
-      }),
+      },
       'warn',
     ),
   ]);
@@ -420,12 +420,12 @@ function tickRetypeBackfill(
           tick,
           'reconciler',
           'capacity_wait',
-          detail({
+          {
             correlation_id: corrId,
             worker,
             queue: 'retype_backfill',
             field_id: fieldId,
-          }),
+          },
           'warn',
         ),
       ]);
@@ -458,14 +458,14 @@ function tickRetypeBackfill(
       tick,
       'reconciler',
       'chunk_claimed',
-      detail({
+      {
         correlation_id: corrId,
         worker,
         queue: 'retype_backfill',
         field_id: fieldId,
         tenant_id: state.world.tenantId,
         cursor: checkpoint.lastProcessedId,
-      }),
+      },
     ),
   ]);
 
@@ -532,14 +532,14 @@ function tickRetypeBackfill(
           tick,
           'reconciler',
           'coercion_null',
-          detail({
+          {
             correlation_id: corrId,
             field_id: fieldId,
             entry_id: event.entryId,
             source_type: field.declaredType,
             target_type: field.declaredType,
             reason: event.reason,
-          }),
+          },
           'warn',
         ),
       );
@@ -551,7 +551,7 @@ function tickRetypeBackfill(
         tick,
         'reconciler',
         'chunk_complete',
-        detail({
+        {
           correlation_id: corrId,
           worker,
           queue: 'retype_backfill',
@@ -559,7 +559,7 @@ function tickRetypeBackfill(
           rows_processed: chunk.length,
           coercion_nulls: nullEvents.length,
           final_chunk: isFinalChunk,
-        }),
+        },
       ),
     );
 
@@ -572,14 +572,14 @@ function tickRetypeBackfill(
           // promotion is a registry state change.
           'registry',
           'promote_to_ready',
-          detail({
+          {
             correlation_id: corrId,
             tenant_id: state.world.tenantId,
             field_id: fieldId,
             slot_assignment_id: liveSlot.id,
             declared_type: field.declaredType,
             is_filterable: true,
-          }),
+          },
         ),
       );
     }

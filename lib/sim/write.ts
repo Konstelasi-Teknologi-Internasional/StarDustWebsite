@@ -34,7 +34,7 @@
  */
 
 import { emit } from './emit';
-import { detail, line } from './events';
+import { line } from './events';
 import type { PayloadRow, SimPayloadDraft } from './payload';
 import type { DeclaredType, SimEntry, SimSyncRow, SlotStatus } from './types';
 import { fieldsOf, liveSlotForField, simNow, type SimWorld } from './world';
@@ -624,13 +624,13 @@ export function writeEntry(
         tick,
         'api',
         'entry_written',
-        detail({
+        {
           tenant_id: world.tenantId,
           entry_id: outcome.entryId,
           model_id: modelId,
           slots_written: outcome.slotsWritten.length,
           enqueued: outcome.enqueuedForBackfill,
-        }),
+        },
       ),
     ];
     if (outcome.enqueuedForBackfill) {
@@ -640,11 +640,11 @@ export function writeEntry(
           tick,
           'api',
           'exhaustion_fallback',
-          detail({
+          {
             tenant_id: world.tenantId,
             entry_id: outcome.entryId,
             model_id: modelId,
-          }),
+          },
         ),
       );
     }
@@ -703,11 +703,11 @@ export function bulkWriteEntries(
         tick,
         'bulk_api',
         'payload_too_large',
-        detail({
+        {
           tenant_id: world.tenantId,
           entry_count: payloads.length,
           threshold: SYNC_THRESHOLD,
-        }),
+        },
         'warn',
       ),
     ]);
@@ -753,11 +753,11 @@ export function bulkWriteEntries(
           tick,
           'bulk_api',
           'bulk_chunk_rolled_back',
-          detail({
+          {
             chunk_index: index,
             chunk_size: slice.length,
             failure_reason: failure,
-          }),
+          },
           'error',
         ),
       ]);
@@ -780,12 +780,12 @@ export function bulkWriteEntries(
         tick,
         'bulk_api',
         'bulk_chunk_committed',
-        detail({
+        {
           chunk_index: index,
           chunk_size: slice.length,
           entry_id_first: first ?? null,
           entry_id_last: last ?? null,
-        }),
+        },
       ),
     ]);
     chunks.push({
@@ -846,11 +846,11 @@ export function deleteEntry(
       tick,
       'api',
       'entry_deleted',
-      detail({
+      {
         tenant_id: world.tenantId,
         entry_id: entryId,
         model_id: entry.modelId,
-      }),
+      },
     ),
   ]);
 

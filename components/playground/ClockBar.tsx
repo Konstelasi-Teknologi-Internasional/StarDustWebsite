@@ -3,6 +3,7 @@
 import { DAEMON_NAMES, SPEEDS, type SpeedIndex } from '@/lib/sim/clock';
 import type { ScenarioId } from '@/lib/sim/scenarios';
 import { useReducedMotion } from '@/lib/useReducedMotion';
+import NowLine from './NowLine';
 import { usePlayground } from './PlaygroundContext';
 import { ScenarioButtons } from './ScenarioPicker';
 import styles from './ClockBar.module.css';
@@ -130,6 +131,11 @@ export default function ClockBar({
       <button type="button" className={`btn ${styles.reset}`} onClick={onReset}>
         reset world
       </button>
+
+      {/* A second row rather than a second bar. It is `width: 100%`, and the
+          bar is `flex-wrap: wrap`, so it takes a line of its own without the
+          bar needing to know it is there. */}
+      <NowLine />
     </div>
   );
 }
