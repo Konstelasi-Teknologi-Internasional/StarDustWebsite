@@ -1,0 +1,396 @@
+/**
+ * Scenario presets — parked worlds, earned rather than staged.
+ *
+ * A sandbox where every control is unlocked is not the same thing as a sandbox
+ * where every *behaviour* is reachable. Three of the things the sections are
+ * built around cannot be produced by ordinary play: the promotion window needs
+ * a backfill spanning more than one 500-row chunk; the warm reservation path
+ * needs an indexed *free* slot of the field's own family, which a fresh schema
+ * never has; `is_null` mid-backfill needs the Reconciler stopped inside a chunk
+ * boundary. Each is a stated "done when" for its section, so a visitor who only
+ * ever writes three rows by hand gets a playground where the section's own
+ * claim never occurs.
+ *
+ * What is missing is not data — the entry writer already seeds 600 rows — but
+ * *history*. Every one of those three comes from an ordering, or from a prior
+ * lifecycle, rather than from a row count.
+ *
+ * Hence: a list of the same actions a human dispatches, folded through the same
+ * `reduce()`. Never a hand-built `SimWorld`. A literal world would be a fifth
+ * mirror of the engine that nothing checks, and it could express states the
+ * reducer cannot reach — a `ready` slot with no backfill behind it, a
+ * checkpoint over an empty queue. Replaying actions also produces the right
+ * event log for free, and the log is the receipt that the state was earned.
+ *
+ * Two further rules, and both are load-bearing:
+ *
+ * 1. **Park before the payoff.** A scenario that runs to the end is a video of
+ *    the playground. The visitor's first click is the interesting one.
+ * 2. **Fold your own ticks.** `clock/tick` is dispatched from the script, never
+ *    awaited from the ticker — which is disabled under reduced motion, so a
+ *    scenario that advanced by letting the clock run would be dead for exactly
+ *    the visitors most in need of being handed a parked world.
+ */
+
+import { isIndexedSlot } from './reserve';
+import { runningCheckpointForField } from './retype';
+import type { SimAction } from './reduce';
+import { fieldIndexState, fieldsOf, type SimWorld } from './world';
+
+export type ScenarioId = 'promotion-window' | 'warm-path';
+
+export interface Scenario {
+  id: ScenarioId;
+  /** Short enough for a button. */
+  title: string;
+  /** One line under the title: what it is. */
+  blurb: string;
+  /** What the parked world *is*, once loaded. */
+  parked: string;
+  /** The first thing to click. */
+  nextStep: string;
+  /** The same, when the clock cannot run itself. */
+  nextStepReduced: string;
+  /** The section the payoff happens in, and what to call it in a link. */
+  anchor: string;
+  anchorLabel: string;
+  /**
+   * Folded through `reduce()` in order. Always starts with `world/reset`, so a
+   * scenario ignores whatever world it was loaded over — which is the whole
+   * reason the picker warns before replacing a populated one.
+   */
+  actions: SimAction[];
+  /**
+   * Empty on success; one message per broken expectation.
+   *
+   * A typed script catches a renamed action at compile time and cannot catch a
+   * moved precondition: a poll period changes, the script still type-checks,
+   * still runs to completion, and quietly parks somewhere else. These are the
+   * defence, which is why the tick count is asserted rather than assumed.
+   */
+  assertParked(world: SimWorld): string[];
+  /**
+   * The clicks the park exists to set up, and what must happen at each.
+   *
+   * Parking correctly is not the same as promising correctly: a scenario can
+   * park exactly where it says and still have a `nextStep` that no longer
+   * describes what happens next. These are the prose held to account — the
+   * strip claims a filter is refused, then accepted; the warm path claims a
+   * reservation with no Watcher tick in between; both are checked rather than
+   * asserted.
+   *
+   * Staged rather than one list because the interesting property is
+   * *mid-sequence*: that the promotion window is visible at all, not merely
+   * that it closes. Folded by `scripts/verify-scenarios.ts`, which is also why
+   * this is data rather than a function — `scenarios.ts` may not import
+   * `reduce()` at runtime, or the module cycle becomes a real one.
+   */
+  payoff: PayoffStage[];
+}
+
+export interface PayoffStage {
+  label: string;
+  actions: SimAction[];
+  assert(world: SimWorld): string[];
+}
+
+/** The filter both scenarios use: one leaf, one seeded value, at the root. */
+function filterCityIs(value: string): SimAction[] {
+  return [
+    { type: 'query/selectModel', modelId: 1 },
+    { type: 'query/addCondition', fieldName: 'city' },
+    // `addCondition` puts a single leaf at the root, so the path is empty.
+    // It also defaults the value to '', which matches nothing — a filter left
+    // that way would report zero rows and look like a broken payoff.
+    { type: 'query/setValue', path: [], text: value },
+    { type: 'query/run' },
+  ];
+}
+
+/** `clock/tick` × n. */
+function ticks(n: number): SimAction[] {
+  return Array.from({ length: n }, (): SimAction => ({ type: 'clock/tick' }));
+}
+
+/**
+ * The shared prefix: a three-field model and 600 rows, nothing indexed.
+ *
+ * Both scenarios open with this, so the second is the first plus a
+ * continuation rather than a copy of it.
+ *
+ * Every field is created non-filterable — which is `draft/addField`'s only
+ * behaviour, matching `stardust_fields.is_filterable NOT NULL DEFAULT FALSE` —
+ * so all 600 writes land in `jsonOnlyFields` and the sync queue stays empty.
+ * That matters: a filterable field with no slot would route the writes into the
+ * ADR 0007 exhaustion path, where the Reconciler reserves an `assigned` slot
+ * and the promotion window never happens at all.
+ *
+ * `population` is last on purpose. `seedPayloads` drops the *last* field on
+ * every seventh row, so putting either string field there would leave ~86 rows
+ * without the value the scenario is about.
+ */
+function placesModel(): SimAction[] {
+  return [
+    { type: 'world/reset' },
+    { type: 'draft/setName', name: 'places' },
+    // Draft keys are `d1`, `d2`, … — `nextKey` starts at 1 and a reset world
+    // has an empty draft, so they are deterministic here.
+    { type: 'draft/addField', declaredType: 'string' },
+    { type: 'draft/patchField', key: 'd1', patch: { name: 'city' } },
+    { type: 'draft/addField', declaredType: 'string' },
+    { type: 'draft/patchField', key: 'd2', patch: { name: 'country' } },
+    { type: 'draft/addField', declaredType: 'int' },
+    { type: 'draft/patchField', key: 'd3', patch: { name: 'population' } },
+    // Fields commit in draft order, so city = 1, country = 2, population = 3.
+    { type: 'registry/createModel' },
+    // `entry/seed` reads `payloadDraft.modelId` rather than taking one.
+    { type: 'payload/selectModel', modelId: 1 },
+    // 600, which straddles the 500-row chunk. At 60 the whole backfill would
+    // finish inside a single fold and there would be no window to stop in.
+    { type: 'entry/seed' },
+  ];
+}
+
+const CITY = 1;
+const COUNTRY = 2;
+
+const PROMOTION_WINDOW: Scenario = {
+  id: 'promotion-window',
+  title: 'The promotion window',
+  blurb: 'A field marked filterable with the Watcher stopped, and 600 rows waiting behind it.',
+  parked:
+    '600 rows written · city is filterable but holds no slot · the Watcher is stopped · a filter on city is refused at pre-flight. The Reconciler has already tried once and logged capacity_wait, which is why nothing is moving.',
+  nextStep:
+    'Start the Watcher, then press run. The next tick provisions the page, reserves the slot and drains the first 500 rows; two ticks later the last 100 land and the slot flips to ready.',
+  nextStepReduced:
+    'Start the Watcher, then press step. The next tick provisions the page, reserves the slot and drains the first 500 rows; two steps later the last 100 land and the slot flips to ready.',
+  anchor: '#daemons',
+  anchorLabel: 'the daemon control room',
+  actions: [
+    ...placesModel(),
+    { type: 'daemon/togglePaused', daemon: 'watcher' },
+    // No page exists, so there is nothing to reserve from and the initiator
+    // defers the assignment. The engine does not provision eagerly to make
+    // room for itself — that is the Watcher's job, and it is stopped.
+    { type: 'field/promote', fieldId: CITY },
+    // Park at tick 3 rather than 0. The Reconciler is due at 2, fails to
+    // reserve and logs `capacity_wait`, so the parked world explains itself —
+    // and the payoff then lands on the very next tick instead of the fourth.
+    ...ticks(3),
+  ],
+  assertParked(world) {
+    const bad: string[] = [];
+    const say = (ok: boolean, msg: string) => {
+      if (!ok) bad.push(msg);
+    };
+
+    say(world.clock.tick === 3, `expected to park at tick 3, got ${world.clock.tick}`);
+    say(world.clock.paused.watcher, 'expected the Watcher to be stopped');
+    say(world.models.length === 1, `expected 1 model, got ${world.models.length}`);
+    say(world.entries.length === 600, `expected 600 entries, got ${world.entries.length}`);
+    say(world.pages.length === 0, `expected no page, got ${world.pages.length}`);
+    say(world.slots.length === 0, `expected no slot rows, got ${world.slots.length}`);
+    say(
+      world.syncQueue.length === 0,
+      `expected an empty sync queue, got ${world.syncQueue.length} rows`,
+    );
+    say(
+      fieldIndexState(world, CITY) === 'none',
+      `expected city to have no index, got '${fieldIndexState(world, CITY)}'`,
+    );
+    say(
+      runningCheckpointForField(world, CITY) !== undefined,
+      'expected a running retype checkpoint for city',
+    );
+    // The park claims to explain itself. If this line is gone the scenario
+    // still "works" and the strip is telling the visitor something untrue.
+    say(
+      world.events.some(e => e.event === 'capacity_wait'),
+      'expected a capacity_wait line in the log',
+    );
+    return bad;
+  },
+  payoff: [
+    {
+      label: 'a filter on city is refused at pre-flight',
+      actions: filterCityIs('aurora-1'),
+      assert(world) {
+        const run = world.queryDraft.lastRun;
+        const code = run?.rejection?.errorCode;
+        return code === 'field_not_filterable'
+          ? []
+          : [`expected field_not_filterable, got '${code ?? 'no rejection'}'`];
+      },
+    },
+    {
+      label: 'starting the Watcher provisions, reserves and drains one chunk',
+      actions: [{ type: 'daemon/togglePaused', daemon: 'watcher' }, { type: 'clock/tick' }],
+      assert(world) {
+        const bad: string[] = [];
+        // The whole point of the 600-row seed: the window has to be *visible*,
+        // not merely traversed. If this reads 'live' the backfill finished
+        // inside one fold and there is nothing for a visitor to stop inside.
+        if (fieldIndexState(world, CITY) !== 'building') {
+          bad.push(`expected city mid-backfill, got '${fieldIndexState(world, CITY)}'`);
+        }
+        if (world.pages.length !== 1) bad.push(`expected 1 page, got ${world.pages.length}`);
+        const checkpoint = runningCheckpointForField(world, CITY);
+        if (checkpoint?.lastProcessedId !== 500) {
+          bad.push(`expected a 500-row first chunk, got ${checkpoint?.lastProcessedId ?? 'none'}`);
+        }
+        return bad;
+      },
+    },
+    {
+      label: 'two more ticks finish it and the slot flips to ready',
+      actions: ticks(2),
+      assert(world) {
+        const bad: string[] = [];
+        if (fieldIndexState(world, CITY) !== 'live') {
+          bad.push(`expected city indexed, got '${fieldIndexState(world, CITY)}'`);
+        }
+        if (!world.events.some(e => e.event === 'promote_to_ready')) {
+          bad.push('expected a promote_to_ready line in the log');
+        }
+        return bad;
+      },
+    },
+    {
+      label: 'the identical filter now returns its row',
+      actions: [{ type: 'query/run' }],
+      assert(world) {
+        const run = world.queryDraft.lastRun;
+        const bad: string[] = [];
+        if (run?.rejection != null) {
+          bad.push(`expected no rejection, got '${run.rejection.errorCode}'`);
+        }
+        if (run?.outcome?.matchedCount !== 1) {
+          bad.push(`expected 1 matched row, got ${run?.outcome?.matchedCount ?? 'none'}`);
+        }
+        return bad;
+      },
+    },
+  ],
+};
+
+const WARM_PATH: Scenario = {
+  id: 'warm-path',
+  title: 'The warm path',
+  blurb: 'A demotion has recycled an indexed column, so the next promotion never waits.',
+  parked:
+    'city was promoted, backfilled and then demoted · the Liberator has swept its slot back to free · i_str_01 is free and still indexed · country is not filterable yet. This state is not reachable by promoting a second field — the Watcher indexes only as many columns as there are waiters, so a fresh page never has a spare.',
+  nextStep:
+    'Promote country in the daemon control room. The slot is reserved inside the promoting transaction, with no Watcher tick in between — then press run to drain the backfill.',
+  nextStepReduced:
+    'Promote country in the daemon control room. The slot is reserved inside the promoting transaction, with no Watcher tick in between — then press step to drain the backfill.',
+  anchor: '#daemons',
+  anchorLabel: 'the daemon control room',
+  actions: [
+    ...placesModel(),
+    // Nothing is paused: this scenario needs the cold start to complete so
+    // that there is an indexed column to recycle.
+    { type: 'field/promote', fieldId: CITY },
+    // 4: the Watcher provisions and the Reconciler reserves and drains chunk 1
+    // in the same fold. 6: chunk 2 is final, the slot flips to ready.
+    ...ticks(6),
+    // Registry-only, and the one thing in the playground that makes a
+    // tombstone — without it the Liberator has no work and no column is ever
+    // recycled.
+    { type: 'field/demote', fieldId: CITY },
+    // 9: the sweep nullifies 500 rows. 12: the last 100, final chunk, and the
+    // slot returns to `free` with the page's `indexedColumns` untouched — which
+    // is the whole point, and the only route to a free *indexed* slot.
+    ...ticks(6),
+  ],
+  assertParked(world) {
+    const bad: string[] = [];
+    const say = (ok: boolean, msg: string) => {
+      if (!ok) bad.push(msg);
+    };
+
+    say(world.clock.tick === 12, `expected to park at tick 12, got ${world.clock.tick}`);
+    say(world.pages.length === 1, `expected 1 page, got ${world.pages.length}`);
+    say(
+      world.pages[0]?.indexedColumns.includes('i_str_01') ?? false,
+      'expected i_str_01 to still be indexed on the page',
+    );
+
+    const recycled = world.slots.filter(
+      s => s.status === 'free' && s.slotType === 'str' && isIndexedSlot(world, s),
+    );
+    say(
+      recycled.length === 1,
+      `expected exactly 1 free indexed string slot, got ${recycled.length}`,
+    );
+
+    const notFree = world.slots.filter(s => s.status !== 'free');
+    say(
+      notFree.length === 0,
+      `expected every slot back to free, got ${notFree.map(s => s.status).join(', ')}`,
+    );
+
+    const fields = fieldsOf(world, 1);
+    say(
+      fields.find(f => f.name === 'city')?.isFilterable === false,
+      'expected city to be non-filterable after the demotion',
+    );
+    say(
+      fields.find(f => f.name === 'country')?.isFilterable === false,
+      'expected country to still be non-filterable',
+    );
+    say(
+      fieldIndexState(world, COUNTRY) === 'none',
+      `expected country to have no index, got '${fieldIndexState(world, COUNTRY)}'`,
+    );
+    say(
+      runningCheckpointForField(world, CITY) === undefined,
+      'expected no running checkpoint left over from the backfill',
+    );
+    return bad;
+  },
+  payoff: [
+    {
+      label: 'promoting country reserves the recycled slot with no tick at all',
+      actions: [{ type: 'field/promote', fieldId: COUNTRY }],
+      assert(world) {
+        const bad: string[] = [];
+
+        // The claim is that no daemon ran. Nothing advanced the clock, so
+        // nothing *could* have — this is the assertion that would catch a
+        // future change making promotion depend on the Watcher again.
+        if (world.clock.tick !== 12) {
+          bad.push(`expected the clock not to move, got tick ${world.clock.tick}`);
+        }
+        if (world.lastLifecycle?.error != null) {
+          bad.push(`expected the promotion to succeed, got '${world.lastLifecycle.error}'`);
+        }
+        if (fieldIndexState(world, COUNTRY) !== 'building') {
+          bad.push(`expected country mid-backfill, got '${fieldIndexState(world, COUNTRY)}'`);
+        }
+
+        // It must be the *recycled* slot, not a fresh one on a new page.
+        const slot = world.slots.find(s => s.fieldId === COUNTRY);
+        if (slot?.slotColumn !== 'i_str_01') {
+          bad.push(`expected the recycled i_str_01, got '${slot?.slotColumn ?? 'none'}'`);
+        }
+        if (world.pages.length !== 1) {
+          bad.push(`expected no new page, got ${world.pages.length}`);
+        }
+
+        // The engine's own word for "reserved inside the promoting
+        // transaction" rather than handed to the Watcher.
+        const started = world.events.filter(e => e.event === 'retype_started').slice(-1)[0];
+        if (started === undefined || !started.detail.includes('deferred_assignment=false')) {
+          bad.push('expected retype_started to report deferred_assignment=false');
+        }
+        return bad;
+      },
+    },
+  ],
+};
+
+export const SCENARIOS: readonly Scenario[] = [PROMOTION_WINDOW, WARM_PATH];
+
+export function scenarioById(id: ScenarioId): Scenario | undefined {
+  return SCENARIOS.find(s => s.id === id);
+}

@@ -1,0 +1,13 @@
+{
+  "//": "Emits the sim core to CommonJS so a plain node process can drive it. The sim has no React in it and imports only relatively, which is what makes this possible — keep it that way.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".scenario-build",
+    "incremental": false,
+    "types": ["node"]
+  },
+  "include": ["lib/sim/**/*.ts", "scripts/**/*.ts"]
+}

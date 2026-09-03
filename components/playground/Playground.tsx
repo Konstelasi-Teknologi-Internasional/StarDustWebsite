@@ -6,6 +6,7 @@ import Nav from '@/components/Nav';
 import { tickMs } from '@/lib/sim/clock';
 import { reduce } from '@/lib/sim/reduce';
 import { clear as clearSnapshot, load, save } from '@/lib/sim/persist';
+import { scenarioById, type ScenarioId } from '@/lib/sim/scenarios';
 import { emptyWorld } from '@/lib/sim/world';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTicker } from '@/lib/useTicker';
@@ -15,6 +16,7 @@ import EntryWriter from './EntryWriter';
 import ModelBuilder from './ModelBuilder';
 import { PlaygroundProvider } from './PlaygroundContext';
 import QueryBuilder from './QueryBuilder';
+import { ScenarioStrip } from './ScenarioPicker';
 import SimulationNotice from './SimulationNotice';
 import TableInspector from './TableInspector';
 import styles from './Playground.module.css';
@@ -58,9 +60,17 @@ export default function Playground() {
     dispatch({ type: 'clock/tick' }),
   );
 
+  // Which preset is parked, if any. Deliberately component state rather than a
+  // member of `SimWorld`: it has no column behind it, and a reload landing on a
+  // parked world with no strip is a correct world, not a broken one.
+  const [scenarioId, setScenarioId] = useState<ScenarioId | null>(null);
+  const scenario = scenarioId === null ? undefined : scenarioById(scenarioId);
+
   const onReset = useCallback(() => {
     clearSnapshot();
     dispatch({ type: 'world/reset' });
+    // The strip describes a world that no longer exists.
+    setScenarioId(null);
   }, []);
 
   const value = useMemo(() => ({ world, dispatch, hydrated }), [world, hydrated]);
@@ -89,7 +99,11 @@ export default function Playground() {
             </p>
           )}
 
-          <ClockBar onReset={onReset} />
+          <ClockBar onReset={onReset} onScenarioLoaded={setScenarioId} />
+
+          {scenario !== undefined && (
+            <ScenarioStrip scenario={scenario} onDismiss={() => setScenarioId(null)} />
+          )}
 
           <ModelBuilder />
 

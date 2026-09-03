@@ -41,6 +41,7 @@ import {
   type QueryDraft,
 } from './query';
 import { createModel } from './registry';
+import { scenarioById, type ScenarioId } from './scenarios';
 import { decodeFilter } from './filter/decode';
 import { encodeEnvelope } from './filter/encode';
 import { isLeaf, isRangeOperator, isSetOperator, type LeafNode, type LeafOperator } from './filter/ast';
@@ -62,6 +63,8 @@ export type SimAction =
   /** Replace the world wholesale — snapshot restore, after mount. */
   | { type: 'world/hydrate'; world: SimWorld }
   | { type: 'world/reset' }
+  /** Replay a preset script. Replaces the world — every script opens on a reset. */
+  | { type: 'scenario/load'; id: ScenarioId }
   | { type: 'clock/toggleRunning' }
   | { type: 'clock/tick' }
   | { type: 'clock/setSpeed'; speed: SpeedIndex }
@@ -158,6 +161,25 @@ function apply(world: SimWorld, action: SimAction): SimWorld {
 
     case 'world/reset':
       return emptyWorld();
+
+    /**
+     * Fold a preset script through this same reducer.
+     *
+     * Not a hand-built world: a literal `SimWorld` would be a mirror of the
+     * engine that nothing checks, and could express states no sequence of
+     * actions can reach. Folding keeps every rule in one place and produces
+     * the event log as a side effect of the actions rather than as decoration.
+     *
+     * Still pure, so StrictMode's double-invoke is harmless, and `simNow()`
+     * derives from the tick rather than the wall clock — a replay is identical
+     * every time. One dispatch is also one commit, so the snapshot effect
+     * saves the parked world once rather than once per scripted action.
+     */
+    case 'scenario/load': {
+      const scenario = scenarioById(action.id);
+      if (scenario === undefined) return world;
+      return scenario.actions.reduce(reduce, world);
+    }
 
     case 'clock/toggleRunning':
       return { ...world, clock: { ...world.clock, running: !world.clock.running } };

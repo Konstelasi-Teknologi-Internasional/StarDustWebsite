@@ -1,8 +1,10 @@
 'use client';
 
 import { DAEMON_NAMES, SPEEDS, type SpeedIndex } from '@/lib/sim/clock';
+import type { ScenarioId } from '@/lib/sim/scenarios';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { usePlayground } from './PlaygroundContext';
+import { ScenarioButtons } from './ScenarioPicker';
 import styles from './ClockBar.module.css';
 
 const SPEED_LABELS = ['0.5×', '1×', '2×'] as const;
@@ -16,11 +18,27 @@ const SPEED_LABELS = ['0.5×', '1×', '2×'] as const;
  * else here can show that, so the per-daemon toggles are on the bar from the
  * start rather than hidden behind an advanced mode.
  */
-export default function ClockBar({ onReset }: { onReset: () => void }) {
+export default function ClockBar({
+  onReset,
+  onScenarioLoaded,
+}: {
+  onReset: () => void;
+  /**
+   * Which preset was just parked. It lives on the root rather than here
+   * because the strip that describes it is a sibling of this bar in the page
+   * flow — the bar is `position: sticky`, and three lines of prose stuck under
+   * the nav would eat a phone screen. The root also already owns the reset
+   * that has to clear it.
+   */
+  onScenarioLoaded: (id: ScenarioId) => void;
+}) {
   const { world, dispatch } = usePlayground();
   const { clock } = world;
   const reduced = useReducedMotion();
 
+  // Which preset is parked, if any. Deliberately component state rather than a
+  // member of `SimWorld`: it has no column behind it, and a reload landing on a
+  // parked world with no strip is a correct world, not a broken one.
   return (
     <div className={`panel ${styles.bar}`}>
       <div className={styles.group}>
@@ -98,6 +116,16 @@ export default function ClockBar({ onReset }: { onReset: () => void }) {
           );
         })}
       </div>
+
+      <ScenarioButtons
+        onLoad={id => {
+          // One dispatch, not one per scripted action: the whole script is
+          // folded inside the reducer, so this is a single commit and a single
+          // snapshot save.
+          dispatch({ type: 'scenario/load', id });
+          onScenarioLoaded(id);
+        }}
+      />
 
       <button type="button" className={`btn ${styles.reset}`} onClick={onReset}>
         reset world
