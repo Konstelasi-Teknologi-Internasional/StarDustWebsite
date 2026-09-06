@@ -22,7 +22,7 @@ const ACTS: { title: string; actor: string; blurb: string }[] = [
     title: 'the Watcher provisions a page',
     actor: 'Watcher · singleton',
     blurb:
-      'No page had a free indexed int slot, so the Watcher provisions and indexes one. It provisions capacity and nothing else — claiming a slot is not its job, so the field is still unmapped when this tick ends.',
+      'No page had a free indexed int slot, so the Watcher provisions one. A page carries exactly the columns it indexes, four of every type family, so the three spare int columns are what let the next few promotions skip this step. It provisions capacity and nothing else — claiming a slot is not its job, so the field is still unmapped when this tick ends.',
   },
   {
     title: 'the Reconciler claims the slot and backfills',
@@ -69,7 +69,7 @@ export default function FieldLifecycle() {
         push(
           line('poll_started', 'source=watcher'),
           line('provision_started', 'reason=unmapped_filterable_field'),
-          line('page_provisioned', 'page=2 indexed_slots=i_int_01,i_int_02'),
+          line('page_provisioned', 'page_id=2 filterable_slots=i_str_01,…,i_dt_04'),
           line('provision_complete', 'source=watcher pages_added=1'),
         );
       } else if (next === 2) {

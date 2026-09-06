@@ -6,7 +6,17 @@ import { useReducedMotion } from '@/lib/useReducedMotion';
 import { useTicker } from '@/lib/useTicker';
 import styles from './DaemonBoard.module.css';
 
-const SLOTS_PER_PAGE = 60;
+/**
+ * What one provisioned page adds, and the level that triggers the next one.
+ *
+ * Sixteen because a page is created with exactly the columns it indexes, four
+ * of every type family — it is not sixty columns of which a few are usable. The
+ * trigger is 20% of that, which is the engine's own capacity threshold, so the
+ * gauge swings through the same proportions it always did; the cycle is simply
+ * four times shorter, and the Watcher lights up more than once a visit.
+ */
+const SLOTS_PER_PAGE = 16;
+const LOW_CAPACITY = 3;
 const WORKERS = 3;
 
 type Tombstone = { id: number; column: string; swept: number };
@@ -31,7 +41,7 @@ type Board = {
 const INITIAL: Board = {
   tick: 0,
   pages: 1,
-  freeSlots: 14,
+  freeSlots: 5,
   queue: [8801, 8802, 8803, 8804, 8805],
   claims: [null, null, null],
   drained: 0,
@@ -80,7 +90,7 @@ function step(b: Board): Board {
   }
 
   // Watcher — singleton, provisions when capacity runs low.
-  if (tick % 4 === 0 && next.freeSlots <= 12) {
+  if (tick % 4 === 0 && next.freeSlots <= LOW_CAPACITY) {
     next.pages += 1;
     next.freeSlots += SLOTS_PER_PAGE;
     next.active.watcher = tick;
@@ -193,13 +203,13 @@ export default function DaemonBoard() {
           <div className={styles.gauge}>
             <div className={styles.gaugeTop}>
               <span>free slots</span>
-              <strong className={board.freeSlots <= 12 ? styles.low : undefined}>
+              <strong className={board.freeSlots <= LOW_CAPACITY ? styles.low : undefined}>
                 {board.freeSlots}
               </strong>
             </div>
             <div className={styles.gaugeTrack}>
               <div
-                className={`${styles.gaugeFill} ${board.freeSlots <= 12 ? styles.gaugeLow : ''}`}
+                className={`${styles.gaugeFill} ${board.freeSlots <= LOW_CAPACITY ? styles.gaugeLow : ''}`}
                 style={{ width: `${Math.min(100, (board.freeSlots / SLOTS_PER_PAGE) * 100)}%` }}
               />
             </div>

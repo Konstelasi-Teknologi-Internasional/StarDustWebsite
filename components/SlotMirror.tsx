@@ -21,7 +21,7 @@ const INITIAL: Field[] = [
   { name: 'city', type: 'string', value: 'Berlin', filterable: false },
 ];
 
-/** The slice of a real page we render. A page carries 60 of these. */
+/** The slice of a real page we render. A page carries sixteen of these. */
 const SLOT_COLUMNS = ['i_str_01', 'i_str_02', 'i_int_01', 'i_num_01'] as const;
 type SlotColumn = (typeof SLOT_COLUMNS)[number];
 
@@ -294,7 +294,7 @@ export default function SlotMirror() {
           <div className={`panel ${styles.table}`}>
             <div className="panel-head">
               <span>entry_slots_page_1</span>
-              <span className="tag tag-indexed">1:1 extension page · 60 typed slots</span>
+              <span className="tag tag-indexed">1:1 extension page · 16 typed slots</span>
             </div>
 
             <div className={styles.tableBody}>
