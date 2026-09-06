@@ -9,7 +9,7 @@
  * actually gone, and the two daemons would never once refer to each other — the
  * whole exchange happens through one row's `status`.
  *
- * Three details are worth keeping straight:
+ * Four details are worth keeping straight:
  *
  *   - **The sweep never joins the field table.** It keys on the page, the
  *     column and a cursor, and nothing else. That is what lets it reclaim a
@@ -17,7 +17,15 @@
  *   - **`sweepGapCount` survives the reclaim.** It counts chunks a sweep
  *     skipped over under contention, and it is an operator annotation about the
  *     *column*, not about the field that used to hold it. Resetting it on
- *     reclaim would erase the record.
+ *     reclaim would erase the record; the engine clears it at the next
+ *     tombstone instead (ADR 0045), which `reserve.ts` mirrors.
+ *   - **There is no gap path here, and its absence is why this reclaim is
+ *     unconditional.** Contention has no meaning in a single-threaded browser
+ *     simulation, so every sweep completes cleanly and every completed sweep
+ *     reclaims. In the engine those are two statements: a sweep that abandons a
+ *     chunk rewinds and stays tombstoned rather than reclaiming (ADR 0046), so
+ *     `free` still means verified empty. Do not read this function as evidence
+ *     that reaching the final chunk is sufficient to reclaim.
  *   - **An idle tick emits nothing at all.** Not a heartbeat, not a
  *     `poll_complete`. A daemon with no work is silent, which is why its card
  *     has to read as deliberately quiet rather than broken.
