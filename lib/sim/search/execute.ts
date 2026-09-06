@@ -413,29 +413,28 @@ function matchesPrefix(stored: unknown, prefix: string): boolean {
  * offset** while a `DATETIME` slot holds naive UTC, so the bound is converted
  * to the instant it names before comparison.
  *
- * **MySQL does not do this, and the simulation diverges deliberately.**
- * Measured on a real MySQL 8.0.13 (2026-09-02), comparing a `DATETIME` column
- * against an RFC 3339 literal:
- *
- *   - `'…T10:00:00+07:00'` matches the row holding `10:00:00`, not the one
- *     holding `03:00:00` — the offset is parsed off and **thrown away**.
- *   - Every RFC 3339 literal, the `Z` form included, raises warning 1292
- *     `Incorrect datetime value`. The comparison still resolves and still
- *     plans as a `range` scan on the index; MySQL truncates at the zone
- *     designator and uses the leading `YYYY-MM-DDTHH:MM:SS`.
- *
- * So on `Z` — the form this page produces — the two agree exactly, and on any
- * other offset the engine is seven hours (or whatever) wrong while this is
- * right. Reproducing that would make the playground teach it, which is the one
- * thing the fidelity rules forbid; it is recorded here and filed against the
- * engine instead, the same way the recycled-slot sweep was in stage 4. If the
- * engine normalises the bound, delete this note, not the conversion.
+ * **The engine agrees, since 2026-09-06.** This used to be a deliberate
+ * divergence: MySQL truncates an RFC 3339 literal at the zone designator, so
+ * `'…T10:00:00+07:00'` matched the row holding `10:00:00` rather than the one
+ * holding `03:00:00`, and the engine bound the consumer's string verbatim.
+ * It now normalises in pre-flight instead — the offset is applied, not parsed
+ * off — so this conversion is fidelity rather than a correction, and the note
+ * that used to file the defect has been retired along with it.
  */
 function normaliseBound(bound: FilterScalar, declaredType: DeclaredType): FilterScalar {
   if (declaredType !== 'datetime' || typeof bound !== 'string') return bound;
   const parsed = Date.parse(bound);
   if (Number.isNaN(parsed)) return bound;
-  return new Date(parsed).toISOString().slice(0, 19).replace('T', ' ');
+  const iso = new Date(parsed).toISOString();
+  // A sub-second bound is kept, not floored. A slot holds whole seconds
+  // (see write.ts), so flooring looks free — but it would drop the row
+  // sitting exactly on the boundary out of a `lt`, and MySQL compares a
+  // fractional constant against a `DATETIME` exactly. The engine keeps
+  // microseconds here; a JS Date reaches milliseconds, which is as close
+  // as a browser gets and compares the same way, the format being
+  // fixed-width up to the point they differ.
+  const millis = iso.slice(20, 23);
+  return iso.slice(0, 19).replace('T', ' ') + (millis === '000' ? '' : `.${millis}`);
 }
 
 /**
