@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "verify:scenarios": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-scenarios.js",
     "verify:narration": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-narration.js",
-    "verify:lifecycles": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-lifecycles.js"
+    "verify:lifecycles": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-lifecycles.js",
+    "verify:tour": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-tour.js"
   },
   "dependencies": {
     "next": "15.5.4",

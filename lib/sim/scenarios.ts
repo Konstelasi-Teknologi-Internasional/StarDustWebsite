@@ -45,6 +45,7 @@ import type { MilestoneKind } from './notify';
 import { isIndexedSlot } from './reserve';
 import { runningCheckpointForField } from './retype';
 import type { SimAction } from './reduce';
+import { CITY, COUNTRY, filterCityIs, placesModel, ticks } from './script';
 import { fieldIndexState, fieldsOf, type SimWorld } from './world';
 
 export type ScenarioId = 'promotion-window' | 'warm-path' | 'half-migrated';
@@ -120,65 +121,13 @@ export interface PayoffStage {
   narrates?: MilestoneKind[];
 }
 
-/** The filter both scenarios use: one leaf, one seeded value, at the root. */
-function filterCityIs(value: string): SimAction[] {
-  return [
-    { type: 'query/selectModel', modelId: 1 },
-    { type: 'query/addCondition', fieldName: 'city' },
-    // `addCondition` puts a single leaf at the root, so the path is empty.
-    // It also defaults the value to '', which matches nothing — a filter left
-    // that way would report zero rows and look like a broken payoff.
-    { type: 'query/setValue', path: [], text: value },
-    { type: 'query/run' },
-  ];
-}
-
-/** `clock/tick` × n. */
-function ticks(n: number): SimAction[] {
-  return Array.from({ length: n }, (): SimAction => ({ type: 'clock/tick' }));
-}
-
 /**
- * The shared prefix: a three-field model and 600 rows, nothing indexed.
- *
- * Both scenarios open with this, so the second is the first plus a
- * continuation rather than a copy of it.
- *
- * Every field is created non-filterable — which is `draft/addField`'s only
- * behaviour, matching `stardust_fields.is_filterable NOT NULL DEFAULT FALSE` —
- * so all 600 writes land in `jsonOnlyFields` and the sync queue stays empty.
- * That matters: a filterable field with no slot would route the writes into the
- * ADR 0007 exhaustion path, where the Reconciler reserves an `assigned` slot
- * and the promotion window never happens at all.
- *
- * `population` is last on purpose. `seedPayloads` drops the *last* field on
- * every seventh row, so putting either string field there would leave ~86 rows
- * without the value the scenario is about.
+ * The action fragments both this file and the guided tour are built from live
+ * in {@link ./script.ts}, at the finer granularity the tour needs. What was
+ * `placesModel()` here is the same list recomposed, and `verify:scenarios` is
+ * what proves the recomposition did not move a park: all three still assert on
+ * the same tick counts they were written against.
  */
-function placesModel(): SimAction[] {
-  return [
-    { type: 'world/reset' },
-    { type: 'draft/setName', name: 'places' },
-    // Draft keys are `d1`, `d2`, … — `nextKey` starts at 1 and a reset world
-    // has an empty draft, so they are deterministic here.
-    { type: 'draft/addField', declaredType: 'string' },
-    { type: 'draft/patchField', key: 'd1', patch: { name: 'city' } },
-    { type: 'draft/addField', declaredType: 'string' },
-    { type: 'draft/patchField', key: 'd2', patch: { name: 'country' } },
-    { type: 'draft/addField', declaredType: 'int' },
-    { type: 'draft/patchField', key: 'd3', patch: { name: 'population' } },
-    // Fields commit in draft order, so city = 1, country = 2, population = 3.
-    { type: 'registry/createModel' },
-    // `entry/seed` reads `payloadDraft.modelId` rather than taking one.
-    { type: 'payload/selectModel', modelId: 1 },
-    // 600, which straddles the 500-row chunk. At 60 the whole backfill would
-    // finish inside a single fold and there would be no window to stop in.
-    { type: 'entry/seed' },
-  ];
-}
-
-const CITY = 1;
-const COUNTRY = 2;
 
 const PROMOTION_WINDOW: Scenario = {
   id: 'promotion-window',

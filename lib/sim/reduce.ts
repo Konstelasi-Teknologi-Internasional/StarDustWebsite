@@ -44,6 +44,7 @@ import {
 } from './query';
 import { createModel } from './registry';
 import { scenarioById, type ScenarioId } from './scenarios';
+import { tourStep } from './tour';
 import { decodeFilter } from './filter/decode';
 import { encodeEnvelope } from './filter/encode';
 import { isLeaf, isRangeOperator, isSetOperator, type LeafNode, type LeafOperator } from './filter/ast';
@@ -67,6 +68,12 @@ export type SimAction =
   | { type: 'world/reset' }
   /** Replay a preset script. Replaces the world — every script opens on a reset. */
   | { type: 'scenario/load'; id: ScenarioId }
+  /**
+   * Apply one guided-tour step. Folded here rather than dispatched action by
+   * action from the panel, on `scenario/load`'s precedent: one gesture is one
+   * commit, one snapshot save, and one batch for the narration hook to absorb.
+   */
+  | { type: 'tour/step'; index: number }
   | { type: 'clock/toggleRunning' }
   | { type: 'clock/tick' }
   | { type: 'clock/setSpeed'; speed: SpeedIndex }
@@ -192,6 +199,18 @@ function apply(world: SimWorld, action: SimAction): SimWorld {
       const scenario = scenarioById(action.id);
       if (scenario === undefined) return world;
       return scenario.actions.reduce(reduce, world);
+    }
+
+    case 'tour/step': {
+      const step = tourStep(action.index);
+      // An index past the end is survivable rather than exceptional: the cursor
+      // is component state, so a tour that grew shorter across a deploy can
+      // still be sitting on an old one.
+      if (step === undefined) return world;
+      // Step 0 is `world/reset` alone, which makes it idempotent — the effect
+      // that enters guided mode on a first visit runs under StrictMode's
+      // double-invoke, and this is what makes that harmless.
+      return step.actions.reduce(reduce, world);
     }
 
     case 'clock/toggleRunning':

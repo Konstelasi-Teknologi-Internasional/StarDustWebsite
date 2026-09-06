@@ -1,0 +1,140 @@
+/* ---------- the header toggle ---------- */
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 18px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+
+.mode {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 5px 11px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color 140ms var(--ease), background 140ms var(--ease);
+}
+.mode:hover { color: var(--text); }
+
+.modeOn {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+/* Armed reads as a warning rather than as a second style of button: the next
+   click discards whatever the visitor has built. Same treatment the scenario
+   buttons use, because it is the same hazard. */
+.armed {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* ---------- the dock ---------- */
+
+/* Same corner and the same layer as the milestone feed — which is not a
+   collision, because guided mode silences the feed. Only one of the two is
+   ever mounted. Above the page, below the fly layer (60); the nav is 40 and
+   the clock bar 20, both at the top of the screen. */
+.dock {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 30;
+  width: min(360px, calc(100vw - 40px));
+}
+
+.panel {
+  background: var(--bg-raised);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 14px 8px;
+}
+
+.quiet {
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+}
+.quiet:hover { color: var(--text-dim); }
+
+.progress {
+  height: 2px;
+  background: var(--border);
+}
+
+.bar {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 220ms var(--ease);
+}
+
+.body { padding: 12px 14px 4px; }
+
+.where {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+
+.title {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+
+/* Sentence case, body typeface, no braces. The event log is the engine's voice
+   and this is the page's; a panel that reads as NDJSON gets quoted back as an
+   engine event. */
+.prose {
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 14px;
+}
+
+/* On a phone the dock spans the width, like the feed's. Nothing is hidden at
+   this size — the panel is one card and the next button is the only way
+   forward, so there is nothing here that could be dropped. */
+@media (max-width: 640px) {
+  .dock {
+    right: 12px;
+    left: 12px;
+    bottom: 12px;
+    width: auto;
+  }
+  .prose { font-size: 12.5px; }
+}
+
+/* The site's rule is to jump to the settled end state rather than animate to
+   it. The bar is the only thing here that moves, and it stops. */
+@media (prefers-reduced-motion: reduce) {
+  .panel { box-shadow: none; }
+  .bar { transition: none; }
+}

@@ -24,6 +24,14 @@ reset on their own and share nothing, every part of it reads the state the
 previous part produced — so it needs a persistent world with a clock, which is
 what [`lib/sim/`](lib/sim/) is.
 
+It opens **guided** on a first visit: a sixteen-step walk through the whole arc —
+define, store, write, index, query, evolve — that dispatches the same actions a
+visitor dispatches by hand, one commit per press, and hands the world it built
+over to the sandbox at the end. The toggle in the page header switches between
+the two at any point; they are two modes over one world, never two routes.
+[`lib/sim/tour.ts`](lib/sim/tour.ts) holds the steps and, beside each one's copy,
+an assertion for every number and event name that copy says out loud.
+
 **It is a simulation and says so on the page.** There is no Node runtime, no PHP
 and no MySQL in production, so it cannot run the real engine. The rules were
 written by hand to match; where the two disagree, the engine is right.

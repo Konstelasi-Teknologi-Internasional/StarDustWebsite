@@ -100,6 +100,17 @@ function merge(existing: FeedCard[], batch: FeedCard[]): FeedCard[] {
 export function useNarration(
   world: SimWorld,
   visible: Record<FeedSection, boolean>,
+  /**
+   * Record milestones without showing any of them.
+   *
+   * Guided mode. The feed's rule is that it only speaks about what is off
+   * screen, and a tour that has just scrolled the visitor to the thing it is
+   * describing leaves it nothing true to say — so the panel is the voice and
+   * the cards stand down. Suppression is about the card and never about the
+   * record, exactly as with the visibility rule below, so the drawer still has
+   * the whole tour in it when the world is handed over.
+   */
+  silenced = false,
 ): Narration {
   const [cards, setCards] = useState<FeedCard[]>([]);
   const [history, setHistory] = useState<FeedCard[]>([]);
@@ -118,6 +129,13 @@ export function useNarration(
   useEffect(() => {
     visibleRef.current = visible;
   }, [visible]);
+
+  // Read at consume time for the same reason, and never retroactively: cards
+  // suppressed during a tour do not appear when it ends.
+  const silencedRef = useRef(silenced);
+  useEffect(() => {
+    silencedRef.current = silenced;
+  }, [silenced]);
 
   const resync = useCallback(() => {
     skipRef.current = true;
@@ -158,7 +176,9 @@ export function useNarration(
     // section the visitor is already looking at does not need a card pointing
     // at it — but it still enters history, or what happened would depend on
     // where you happened to be scrolled.
-    const shown = batch.filter(card => !visibleRef.current[card.section]);
+    const shown = silencedRef.current
+      ? []
+      : batch.filter(card => !visibleRef.current[card.section]);
 
     setHistory(prev => [...batch].reverse().concat(prev).slice(0, MAX_HISTORY));
     if (shown.length > 0) {
