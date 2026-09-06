@@ -20,11 +20,11 @@
 
 .row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
 }
 @media (max-width: 860px) {
-  .row { grid-template-columns: 1fr; }
+  .row { grid-template-columns: minmax(0, 1fr); }
 }
 
 .daemon {
@@ -225,7 +225,7 @@
 
 .sweepRow {
   display: grid;
-  grid-template-columns: 70px 1fr 34px;
+  grid-template-columns: 70px minmax(0, 1fr) 34px;
   gap: 9px;
   align-items: center;
   font-family: var(--mono);

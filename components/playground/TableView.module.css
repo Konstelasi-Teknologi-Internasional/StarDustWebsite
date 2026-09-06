@@ -2,11 +2,15 @@
 
 .name { font-family: var(--mono); color: var(--text); }
 
+/* Not `flex-shrink: 0`. The head wraps now, so the right-hand group moves
+   to its own line rather than pushing the table name off a narrow panel —
+   and a group that refuses to shrink is what stopped that from happening. */
 .headRight {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
-  flex-shrink: 0;
+  min-width: 0;
 }
 
 .toggle {

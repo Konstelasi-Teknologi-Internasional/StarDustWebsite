@@ -46,11 +46,11 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 20px;
 }
 @media (max-width: 940px) {
-  .grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .side { display: flex; flex-direction: column; overflow: hidden; }
@@ -142,12 +142,18 @@
   background: var(--panel);
 }
 
+/* The multiplier and its caption are one phrase, so they sit on one line
+   where there is room — but the caption is a full sentence and grows with
+   the condition count, so the pair has to be allowed to break. Only the
+   number itself stays unbreakable. */
 .factor {
   display: flex;
   align-items: baseline;
-  gap: 10px;
-  white-space: nowrap;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  min-width: 0;
 }
+.factor strong { white-space: nowrap; }
 .factor strong {
   font-family: var(--mono);
   font-size: 26px;
@@ -158,7 +164,9 @@
 
 .disclaimer {
   flex: 1;
-  min-width: 260px;
+  /* `min()` rather than a flat 260px: below a ~310px content box the flat
+     floor is itself the overflow. */
+  min-width: min(260px, 100%);
   font-size: 12.5px;
   line-height: 1.6;
   color: var(--text-faint);

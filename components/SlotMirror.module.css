@@ -1,17 +1,22 @@
 .demo { margin-top: 44px; }
 
+/* `minmax(0, …)` on both tracks, not `1fr`. A bare `1fr` is
+   `minmax(auto, 1fr)`, and the auto floor is the item's min-content width —
+   which here is the slot table's own `min-width: 520px`, so the track grew
+   to 554px inside a 342px phone and pushed the whole page sideways. The
+   table already scrolls inside `.tableBody`; the track just has to let it. */
 .grid {
   display: grid;
-  grid-template-columns: minmax(300px, 380px) 1fr;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
 
 @media (max-width: 940px) {
-  .grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: minmax(0, 1fr); }
 }
 
-.col { overflow: hidden; }
+.col { overflow: hidden; min-width: 0; }
 
 .body { padding: 16px; }
 
@@ -26,7 +31,7 @@
 
 .field {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
     'top top'
     'input toggle'
@@ -51,7 +56,15 @@
   color: var(--text);
 }
 
-.field > :global(.tag-pending) { grid-area: warn; justify-self: start; }
+/* The only long-form tag on the page — a sentence, not a chip — so it opts
+   out of `.tag`'s nowrap rather than running off the panel. */
+.field > :global(.tag-pending) {
+  grid-area: warn;
+  justify-self: start;
+  max-width: 100%;
+  white-space: normal;
+  line-height: 1.45;
+}
 
 .input {
   grid-area: input;
@@ -110,16 +123,16 @@
 
 /* ---------- storage side ---------- */
 
-.storage { display: flex; flex-direction: column; gap: 0; }
+.storage { display: flex; flex-direction: column; gap: 0; min-width: 0; }
 
-.table { overflow: hidden; }
+.table { overflow: hidden; min-width: 0; }
 
 .tableBody { padding: 12px; overflow-x: auto; }
 
 .tableHead,
 .row {
   display: grid;
-  grid-template-columns: 44px 74px 74px 1fr;
+  grid-template-columns: 44px 74px 74px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
   font-family: var(--mono);
@@ -152,10 +165,13 @@
 
 .dim { color: var(--text-faint); font-style: normal; }
 
-/* slot table has its own column rhythm */
+/* slot table has its own column rhythm — and its own floor, because those
+   tracks add up to 528px (64 + 4x88 + 62 + five 10px gaps), past the 520px
+   the two tables otherwise share. */
 .slotHead,
 .slotRow {
   grid-template-columns: 64px repeat(4, minmax(88px, 1fr)) 62px;
+  min-width: 528px;
 }
 
 .slotCell {
@@ -182,6 +198,7 @@
 .indexNote {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
   padding-top: 10px;

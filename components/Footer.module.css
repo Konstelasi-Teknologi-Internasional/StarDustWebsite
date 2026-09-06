@@ -53,7 +53,8 @@
 .legal {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 6px 16px;
   padding-top: 18px;
   padding-bottom: 26px;
   border-top: 1px solid var(--border);

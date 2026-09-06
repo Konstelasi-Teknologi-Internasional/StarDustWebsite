@@ -21,12 +21,22 @@ export default function AnimatedNumber({ value, duration = 620 }: { value: numbe
     let raf = 0;
 
     const step = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
+      // Clamped at both ends. A rAF callback is handed the timestamp of the
+      // frame it belongs to, which can predate the `performance.now()` read
+      // that scheduled it — and an unclamped negative `t` runs easeOutCubic
+      // far outside [0,1], which is how a row count rendered as
+      // "-544,157,233" instead of counting up to twenty-two million.
+      const t = Math.min(1, Math.max(0, (now - start) / duration));
       // easeOutCubic — fast commitment, gentle settle.
       const eased = 1 - Math.pow(1 - t, 3);
-      setShown(Math.round(a + (value - a) * eased));
+      const next = Math.round(a + (value - a) * eased);
+      // Every frame, not just the last: a value that changes mid-flight
+      // otherwise restarts from where the *previous* run began rather than
+      // from the number currently on screen, and the count jumps backwards
+      // before it resumes.
+      from.current = next;
+      setShown(next);
       if (t < 1) raf = requestAnimationFrame(step);
-      else from.current = value;
     };
 
     raf = requestAnimationFrame(step);

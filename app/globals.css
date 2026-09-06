@@ -82,6 +82,10 @@ body {
   font-size: 16px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  /* A last-resort guard, not a layout tool: every known overflow is fixed at
+     its source. Long unbroken tokens (a URL, a slot column name) still have
+     to break somewhere rather than widen the page. */
+  overflow-wrap: break-word;
   overflow-x: hidden;
 }
 
@@ -155,7 +159,12 @@ code, pre, kbd { font-family: var(--mono); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  /* A head is a table name on the left and a nowrap tag on the right, and
+     several of those pairs are wider than a phone. Wrapping to a second
+     line is the only option that keeps both readable — the tags carry
+     meaning, so neither side can be truncated. */
+  flex-wrap: wrap;
+  gap: 6px 12px;
   padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   font-family: var(--mono);
@@ -163,6 +172,15 @@ code, pre, kbd { font-family: var(--mono); }
   color: var(--text-dim);
   letter-spacing: 0.03em;
 }
+/* `anywhere`, not `break-word`: only the former lowers the item's
+   min-content width, and the labels here are unbreakable mono identifiers
+   (`stardust_slot_assignments`) that are themselves wider than a 320px
+   phone's panel. */
+.panel-head > * { min-width: 0; overflow-wrap: anywhere; }
+/* Several heads use the tag slot for a full sentence rather than a chip.
+   Normal wrapping only breaks when the line genuinely does not fit, so the
+   short chips elsewhere are unaffected. */
+.panel-head .tag { white-space: normal; }
 
 /* ---------- controls ---------- */
 
