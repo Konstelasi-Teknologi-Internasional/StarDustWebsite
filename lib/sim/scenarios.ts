@@ -4,12 +4,20 @@
  * A sandbox where every control is unlocked is not the same thing as a sandbox
  * where every *behaviour* is reachable. Three of the things the sections are
  * built around cannot be produced by ordinary play: the promotion window needs
- * a backfill spanning more than one 500-row chunk; the warm reservation path
- * needs an indexed *free* slot of the field's own family, which a fresh schema
- * never has; `is_null` mid-backfill needs the Reconciler stopped inside a chunk
+ * a backfill spanning more than one 500-row chunk; the reclaim needs a slot that
+ * has been promoted, backfilled, demoted and swept before anything asks for it
+ * again; `is_null` mid-backfill needs the Reconciler stopped inside a chunk
  * boundary. Each is a stated "done when" for its section, so a visitor who only
  * ever writes three rows by hand gets a playground where the section's own
  * claim never occurs.
+ *
+ * The second of those used to be a stronger claim — that a *warm* reservation
+ * was unreachable at all, because the Watcher indexed only as many columns as
+ * there were waiters and a fresh page therefore never had a spare. Index
+ * headroom retired that: a page now carries four columns of every family, so
+ * three of them are spare the moment it exists and the second promotion of a
+ * type is warm without any help. What is still unreachable by ordinary play is
+ * the *round trip* — and that is what this scenario now parks in front of.
  *
  * What is missing is not data — the entry writer already seeds 600 rows — but
  * *history*. Every one of those three comes from an ordering, or from a prior
@@ -307,13 +315,13 @@ const PROMOTION_WINDOW: Scenario = {
 const WARM_PATH: Scenario = {
   id: 'warm-path',
   title: 'The warm path',
-  blurb: 'A demotion has recycled an indexed column, so the next promotion never waits.',
+  blurb: 'A swept column goes back in the pool, and is the one the next promotion takes.',
   parked:
-    'city was promoted, backfilled and then demoted · the Liberator has swept its slot back to free · i_str_01 is free and still indexed · country is not filterable yet. This state is not reachable by promoting a second field — the Watcher indexes only as many columns as there are waiters, so a fresh page never has a spare.',
+    'city was promoted, backfilled and then demoted · the Liberator has swept its slot back to free · i_str_01 is free, still indexed, and carries no residue · country is not filterable yet. The page also holds i_str_02–i_str_04, indexed since it was provisioned and never claimed by anything: that is the headroom, and it is why a second promotion is warm even without a demotion. What only a full round trip produces is a column that has been used and handed back.',
   nextStep:
-    'Promote country in the daemon control room. The slot is reserved inside the promoting transaction, with no Watcher tick in between — then press run to drain the backfill.',
+    'Promote country in the daemon control room. It reserves inside the promoting transaction with no Watcher tick in between — and it takes i_str_01, the recycled column, rather than untouched headroom, because the reserver walks the free list oldest first. Then press run to drain the backfill.',
   nextStepReduced:
-    'Promote country in the daemon control room. The slot is reserved inside the promoting transaction, with no Watcher tick in between — then press step to drain the backfill.',
+    'Promote country in the daemon control room. It reserves inside the promoting transaction with no Watcher tick in between — and it takes i_str_01, the recycled column, rather than untouched headroom, because the reserver walks the free list oldest first. Then press step to drain the backfill.',
   anchor: '#daemons',
   anchorLabel: 'the daemon control room',
   actions: [
@@ -330,7 +338,8 @@ const WARM_PATH: Scenario = {
     { type: 'field/demote', fieldId: CITY },
     // 9: the sweep nullifies 500 rows. 12: the last 100, final chunk, and the
     // slot returns to `free` with the page's `indexedColumns` untouched — which
-    // is the whole point, and the only route to a free *indexed* slot.
+    // is the whole point: a reclaimed column is indexed capacity again, not a
+    // column that has to be provisioned for a second time.
     ...ticks(6),
   ],
   assertParked(world) {
@@ -346,12 +355,28 @@ const WARM_PATH: Scenario = {
       'expected i_str_01 to still be indexed on the page',
     );
 
-    const recycled = world.slots.filter(
+    // Four, not one: i_str_01 came back from the sweep, and i_str_02-04 have
+    // been free and indexed since the page was provisioned. The scenario's
+    // claim is about *which* of the four the next promotion takes, so the
+    // interesting assertion is that the recycled one is among them and holds
+    // nothing — a count alone would pass with the sweep half done.
+    const freeIndexedStr = world.slots.filter(
       s => s.status === 'free' && s.slotType === 'str' && isIndexedSlot(world, s),
     );
     say(
-      recycled.length === 1,
-      `expected exactly 1 free indexed string slot, got ${recycled.length}`,
+      freeIndexedStr.length === 4,
+      `expected 4 free indexed string slots, got ${freeIndexedStr.length}`,
+    );
+
+    const recycled = freeIndexedStr.find(s => s.slotColumn === 'i_str_01');
+    say(recycled !== undefined, 'expected the swept i_str_01 to be free and indexed');
+    say(
+      recycled?.fieldId === null,
+      'expected the recycled slot to hold no field id',
+    );
+    say(
+      world.entries.every(e => e.slots[1]?.i_str_01 == null),
+      'expected the sweep to have nullified every mirrored city value',
     );
 
     const notFree = world.slots.filter(s => s.status !== 'free');
@@ -381,7 +406,7 @@ const WARM_PATH: Scenario = {
   },
   payoff: [
     {
-      label: 'promoting country reserves the recycled slot with no tick at all',
+      label: 'promoting country takes the recycled column, not untouched headroom',
       actions: [{ type: 'field/promote', fieldId: COUNTRY }],
       // The warm path's whole claim is that this happens inside the promoting
       // transaction. The slot-reserved card is the visible half of that, and
@@ -403,7 +428,9 @@ const WARM_PATH: Scenario = {
           bad.push(`expected country mid-backfill, got '${fieldIndexState(world, COUNTRY)}'`);
         }
 
-        // It must be the *recycled* slot, not a fresh one on a new page.
+        // It must be the *recycled* slot. Three untouched headroom columns of
+        // the same family were free alongside it, so this is a claim about the
+        // reserver's oldest-first walk and not merely about capacity existing.
         const slot = world.slots.find(s => s.fieldId === COUNTRY);
         if (slot?.slotColumn !== 'i_str_01') {
           bad.push(`expected the recycled i_str_01, got '${slot?.slotColumn ?? 'none'}'`);

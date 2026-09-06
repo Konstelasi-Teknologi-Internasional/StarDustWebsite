@@ -57,8 +57,8 @@ type Props<Row> = {
    * Render at most this many rows, keeping the **most recent**.
    *
    * From the write path onward `entry_data` and `stardust_sync_queue` grow by
-   * a row per write, and an extension page draws up to 60 columns for each of
-   * them — a seeded model is tens of thousands of cells. The newest rows are
+   * a row per write, and an extension page draws a column per slot for each of
+   * them — a seeded model is thousands of cells. The newest rows are
    * kept rather than the oldest because they are the ones a visitor just
    * caused, and because the write choreography needs the row it landed in to
    * actually be in the DOM.

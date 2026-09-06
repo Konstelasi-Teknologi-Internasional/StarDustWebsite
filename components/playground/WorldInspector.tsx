@@ -15,7 +15,7 @@ import type {
   SimSlot,
   SimSyncRow,
 } from '@/lib/sim/types';
-import { SLOTS_PER_PAGE } from '@/lib/sim/world';
+import { defaultPageColumns } from '@/lib/sim/capacity';
 import PageTable from './PageTable';
 import { usePlayground } from './PlaygroundContext';
 import TableView, { TABLE_ROW_LIMIT, type Column } from './TableView';
@@ -144,7 +144,7 @@ export default function WorldInspector() {
             />
             <TableView<SimSlot>
               name="stardust_slot_assignments"
-              note={`${SLOTS_PER_PAGE} rows per page`}
+              note="one row per slot column per page"
               about="The inventory: one row per slot column per page, seeded free and claimed from there. status is a closed five-state ENUM, and a partial unique index enforces that a field holds at most one live slot — the database refuses the alternative rather than trusting the code."
               rows={world.slots}
               rowKey={s => s.id}
@@ -184,17 +184,22 @@ export default function WorldInspector() {
                 <p>
                   There is no extension page to show, and there will not be one until
                   something asks for slot capacity. The DDL below is what a provisioner
-                  runs when that happens: 60 columns — <code>i_str_NN</code>,{' '}
-                  <code>i_int_NN</code>, <code>i_num_NN</code> and <code>i_dt_NN</code>,
-                  25, 15, 10 and 10 of them — and no indexes at all, because which
-                  columns get one is decided per page from the fields that need them.
+                  runs when that happens: four columns of each type family —{' '}
+                  <code>i_str_NN</code>, <code>i_int_NN</code>, <code>i_num_NN</code> and{' '}
+                  <code>i_dt_NN</code> — and an index on every one of them. A page
+                  carries exactly what it indexes, because a slot column without an
+                  index is one no filterable field is allowed to occupy; the spare
+                  three per family are the headroom that lets the next few promotions
+                  skip the daemons entirely. The 25/15/10/10 layout is the ceiling one
+                  family can grow to on a page, not what it starts with.
                 </p>
                 <div className={styles.absentDdl}>
                   {/* Page 1 because that is what the first one will be called,
-                      and no filterable slots because nothing has asked for an
-                      index yet. */}
+                      and the no-demand column set because nothing has asked for
+                      a slot yet. Asked of the planner rather than restated, so
+                      the preview and the real thing cannot drift. */}
                   <CodeBlock
-                    code={pageDdl(1, [])}
+                    code={pageDdl(1, defaultPageColumns())}
                     lang="sql"
                     title="what a provisioner would run"
                     copyable

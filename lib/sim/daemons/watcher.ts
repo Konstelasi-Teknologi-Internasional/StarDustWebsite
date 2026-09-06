@@ -2,8 +2,8 @@
  * The Watcher — singleton page provisioner.
  *
  * It does one thing and pointedly does not do the obvious second thing: it adds
- * capacity, and it never claims any. A page appears with sixty free slots and
- * the field that caused it is still unmapped when the tick ends. That gap is
+ * capacity, and it never claims any. A page appears with every one of its slots
+ * free and the field that caused it still unmapped when the tick ends. That gap is
  * not an oversight to be tidied away — it is the separation the whole daemon
  * section exists to show, and collapsing it would turn four independent
  * processes into one pipeline with steps.

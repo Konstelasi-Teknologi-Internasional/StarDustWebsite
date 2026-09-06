@@ -219,6 +219,13 @@ function reserveCore(
  * The affine status set includes `backfilling`, which the spread metric's does
  * not. Different questions: spread measures join cost and a `backfilling` slot
  * serves no query, whereas affinity asks where the model is *going* to live.
+ *
+ * **Affinity only became reachable when pages gained index headroom.** It can
+ * co-locate only onto a page holding an indexed free slot of the field's
+ * family, and sizing a page to demand alone guaranteed there was never one — so
+ * every reservation logged `fallback` and the whole mechanism was inert. Four
+ * columns per family means a second field of the same model usually finds its
+ * model's page with room, and `co_located` is now the ordinary outcome.
  */
 function pickCandidate(
   world: SimWorld,

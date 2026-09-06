@@ -83,14 +83,20 @@ import type {
 export const SIM_SCHEMA_VERSION = 3;
 
 /**
- * A page carries exactly 60 typed slots, split 25/15/10/10.
+ * The **most** slots of each family a page can carry, 25/15/10/10.
  *
- * These are `PageProvisioner::STRING_SLOTS` and friends in the engine, which
- * is the source of truth. The 60 is also claimed on the site's landing page,
- * so if it ever changes it changes in both places in the same commit.
+ * These are `PageProvisioner::STRING_SLOTS` and friends in the engine, which is
+ * the source of truth. They are a ceiling and not a layout: since ADR 0043 a
+ * page is created with exactly the columns it indexes, so how many slots a page
+ * actually has is whatever the planner asked for — four per family under the
+ * default headroom, more where demand exceeded it — and is readable only from
+ * that page's own `indexedColumns`.
+ *
+ * **There is deliberately no `SLOTS_PER_PAGE` here.** There was, it was 60, and
+ * it was the sum of these four; every reader that multiplied it by a page count
+ * was reporting inventory that no reservation could claim. A total that means
+ * anything is `world.slots.length`, or one page's `indexedColumns.length`.
  */
-export const SLOTS_PER_PAGE = 60;
-
 export const FAMILY_SLOT_COUNTS: Record<SlotFamily, number> = {
   str: 25,
   int: 15,

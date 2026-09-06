@@ -38,7 +38,7 @@
  */
 
 import type { EventFields, EventName, SimEvent } from './events';
-import { fieldIndexState, SLOTS_PER_PAGE, type SimWorld } from './world';
+import { fieldIndexState, type SimWorld } from './world';
 
 /* ------------------------------------------------------------------ *
  * The six section anchors
@@ -146,6 +146,32 @@ export interface CoalescedMilestone extends Milestone {
  * nothing. Correct: narration is about what just happened, not about history
  * the visitor has already scrolled past.
  */
+/**
+ * `4 string · 4 int · 4 numeric · 4 datetime`, from the column list.
+ *
+ * Counted rather than assumed: the headroom is a floor, so a family with more
+ * waiters than headroom gets more columns, and a card claiming four of each
+ * would be quietly wrong exactly when the page is interesting.
+ */
+function countByFamily(columns: string[]): string {
+  const labels: Record<string, string> = {
+    str: 'string',
+    int: 'int',
+    num: 'numeric',
+    dt: 'datetime',
+  };
+  const counts = new Map<string, number>();
+
+  for (const column of columns) {
+    const family = column.split('_')[1] ?? '';
+    counts.set(family, (counts.get(family) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .map(([family, n]) => `${n} ${labels[family] ?? family}`)
+    .join(' · ');
+}
+
 function str(fields: EventFields | undefined, key: string): string | undefined {
   const value = fields?.[key];
   return typeof value === 'string' ? value : undefined;
@@ -211,13 +237,19 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       const table = str(fields, 'table_name');
       if (pageId === undefined || table === undefined) return null;
 
-      const indexed = str(fields, 'filterable_slots') ?? 'none';
+      // Since ADR 0043 the page's columns *are* its indexed columns, so there
+      // is no second number to report and no `none` case: a plan naming no
+      // column is a page the planner declines to provision at all.
+      //
+      // Summarised by family rather than enumerated. Sixteen column names is
+      // the ordinary case now, and a card that lists them all is a card nobody
+      // reads — while the shape, four of each, is the whole point.
+      const indexed = str(fields, 'filterable_slots') ?? '';
+      const columns = indexed === '' ? [] : indexed.split(',');
+      const shape = countByFamily(columns);
       return {
         headline: `Page ${pageId} exists now`,
-        detail:
-          indexed === 'none'
-            ? `${table} — ${SLOTS_PER_PAGE} slot columns, none of them indexed.`
-            : `${table} — ${SLOTS_PER_PAGE} slot columns, indexed: ${indexed}.`,
+        detail: `${table} — ${columns.length} slot columns, every one indexed: ${shape}.`,
       };
     },
   },

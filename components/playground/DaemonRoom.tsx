@@ -1,7 +1,6 @@
 'use client';
 
-import { FAMILY_SLOT_COUNTS, SLOTS_PER_PAGE } from '@/lib/sim/world';
-import { readPendingDemand } from '@/lib/sim/capacity';
+import { readPendingDemand, reportCapacity } from '@/lib/sim/capacity';
 import { RECONCILER_WORKERS } from '@/lib/sim/daemons/reconciler';
 import { sweepProgress, tombstonedBatch } from '@/lib/sim/daemons/liberator';
 import type { SlotFamily } from '@/lib/sim/types';
@@ -102,17 +101,17 @@ export default function DaemonRoom() {
 
       <p className={styles.caveat}>
         <strong>&ldquo;Capacity&rdquo; means an indexed free slot of the field&rsquo;s own
-        type family</strong> — not a free slot. A page has sixty columns and indexes
-        only the ones demand asked for, so a page with fifty-eight free columns can
-        still have nothing a waiting <code>string</code> field may take, and the
-        Watcher provisions another one. That is why a promotion on a fresh schema
-        almost always takes the slow path: the reservation is deferred, the Watcher
-        wakes, and the Reconciler picks it up. The fast path — where the slot is
-        reserved inside the transaction <code>promoteFieldToFilterable()</code> itself
-        runs and the Watcher never stirs — needs a spare indexed column of that
-        family, which in practice means one a demotion has already recycled. Demote a
-        field below, let the Liberator finish, then promote another of the same type
-        and watch the whole daemon chain not happen.
+        type family</strong> — not a free slot. A page is created with exactly the
+        columns it indexes, four of every type family, because a column without an
+        index is one no filterable field may occupy: a page of sixty columns indexing
+        the two that were asked for was fifty-eight columns of nothing. So the first
+        promotion on a fresh schema still takes the slow path — there is no page at
+        all, the reservation is deferred, the Watcher wakes and the Reconciler picks
+        it up — but the next three of that type take the fast path, reserved inside
+        the transaction <code>promoteFieldToFilterable()</code> itself runs, with the
+        Watcher never stirring. Promote one field below, let the chain finish, then
+        promote another of the same type and watch none of it happen. The fifth is
+        slow again: the family&rsquo;s headroom is spent, and a page is a page.
       </p>
 
       <div className={styles.split}>
@@ -147,6 +146,7 @@ const FAMILY_LABEL: Record<SlotFamily, string> = {
 function WatcherBody() {
   const { world } = usePlayground();
   const demand = readPendingDemand(world);
+  const snapshot = reportCapacity(world);
 
   const free = world.slots.filter(s => s.status === 'free').length;
   const total = world.slots.length;
@@ -167,7 +167,7 @@ function WatcherBody() {
       <p className={styles.sub}>
         {world.pages.length === 0
           ? 'no page provisioned — bootstrap creates none, and one appears only when something needs it'
-          : `${world.pages.length} page${world.pages.length === 1 ? '' : 's'} × ${SLOTS_PER_PAGE} slots`}
+          : `${total} slot${total === 1 ? '' : 's'} across ${world.pages.length} page${world.pages.length === 1 ? '' : 's'}`}
       </p>
 
       <div className={styles.demand}>
@@ -179,8 +179,12 @@ function WatcherBody() {
             {demand.families.map(family => (
               <span key={family} className={styles.chip}>
                 {FAMILY_LABEL[family]}
+                {/* Indexed *and* free, which is the only kind a waiter can be
+                    handed — and a zero here is the starvation trigger, not the
+                    threshold, so it provisions whatever the ratio says. */}
                 <em>
-                  {demand.waiters[family].length} waiting · {FAMILY_SLOT_COUNTS[family]}/page
+                  {demand.waiters[family].length} waiting · {snapshot.indexedFree[family]}{' '}
+                  claimable
                 </em>
               </span>
             ))}

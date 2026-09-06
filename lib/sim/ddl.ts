@@ -335,10 +335,15 @@ export function slotSqlType(declaredType: DeclaredType): string {
 /**
  * The DDL for one extension page.
  *
- * A port of the engine's `PageProvisioner::buildPageDdl()`. Every page has the
- * same 60 columns; what differs between them is `filterableSlots`, decided per
- * page when it is provisioned, from the fields that actually need an index.
- * Indexing all 60 by default would be the cost this design exists to avoid.
+ * A port of the engine's `PageProvisioner::buildPageDdl()`. `filterableSlots`
+ * is both the column list and the index list, because since ADR 0043 those are
+ * the same set: a page is created with exactly what it indexes. Pages used to
+ * carry all 60 columns and index the few demand asked for, which left the other
+ * fifty-odd as columns nothing could ever legally occupy.
+ *
+ * How wide a page is therefore varies — the planner decides it, from the
+ * headroom plus whatever demand exceeds it. The 25/15/10/10 counts remain the
+ * per-family ceiling it clamps to.
  */
 export function pageDdl(pageNumber: number, filterableSlots: string[]): string {
   const tableName = `entry_slots_page_${pageNumber}`;
@@ -348,7 +353,7 @@ export function pageDdl(pageNumber: number, filterableSlots: string[]): string {
     '    tenant_id BIGINT NOT NULL,',
   ];
 
-  for (const col of allSlotColumns()) {
+  for (const col of filterableSlots) {
     lines.push(`    ${col} ${FAMILY_SQL_TYPE[familyOfColumn(col)]} NULL DEFAULT NULL,`);
   }
 

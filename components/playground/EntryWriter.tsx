@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeBlock from '@/components/CodeBlock';
 import { clearFlights, fly, type FlyOptions } from '@/lib/fly';
+import { defaultPageColumns } from '@/lib/sim/capacity';
 import { pageDdl, TABLE_DDL } from '@/lib/sim/ddl';
 import { bulkWriteSnippet, writeEntrySnippetFull } from '@/lib/sim/php';
 import type { SimEntry } from '@/lib/sim/types';
@@ -14,7 +15,7 @@ import {
   toPayloadFields,
   type EntryWriteOutcome,
 } from '@/lib/sim/write';
-import { fieldIndexState, SLOTS_PER_PAGE } from '@/lib/sim/world';
+import { fieldIndexState } from '@/lib/sim/world';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import EventLog from './EventLog';
 import PayloadFieldRow from './PayloadFieldRow';
@@ -516,13 +517,13 @@ export default function EntryWriter() {
                 catches up.
               </p>
               <p className={styles.absentNote}>
-                A page is {SLOTS_PER_PAGE} typed columns and appears when a daemon decides
-                capacity is needed. That is the next section&rsquo;s job, and this is the
-                debt it will be draining.
+                A page is a set of typed columns, every one of them indexed, and it
+                appears when a daemon decides capacity is needed. That is the next
+                section&rsquo;s job, and this is the debt it will be draining.
               </p>
               <div className={styles.absentDdl}>
                 <CodeBlock
-                  code={pageDdl(1, [])}
+                  code={pageDdl(1, defaultPageColumns())}
                   lang="sql"
                   title="what a provisioner would run"
                   copyable

@@ -3,28 +3,32 @@
  *
  * Adding capacity is one operation with two halves: the `CREATE TABLE` that
  * brings an `entry_slots_page_N` into existence, and the registry transaction
- * that records the page, inserts its full sixty-row slot inventory as `free`,
- * and bumps `stardust_schema_version` — atomically, per ADR 0017 §4.6.
+ * that records the page, inserts one `free` slot-inventory row per column, and
+ * bumps `stardust_schema_version` — atomically, per ADR 0017 §4.6.
  *
  * Three things about it are load-bearing and easy to blur:
  *
- *   1. **Every page has all sixty slot columns.** What differs between pages is
- *      which of them carry an *index*, and that is decided here, once, from the
- *      demand the caller passed in. Indexing all sixty by default is the cost
- *      this whole design exists to avoid.
+ *   1. **A page carries exactly the columns it indexes** (ADR 0043). It used to
+ *      be created with all sixty and index the handful demand asked for, which
+ *      meant the inventory advertised fifty-odd `free` rows that no reservation
+ *      path could ever claim — capacity on the gauge and nothing behind it.
+ *      There is no fixed page size any more: how big a page is was decided by
+ *      the planner that asked for it, and is readable only from its own
+ *      inventory. The 25/15/10/10 layout survives as the per-family ceiling.
  *   2. **Which columns are indexed is stored nowhere in the registry.** The
  *      engine reads it back out of `information_schema` when it needs it, so
  *      the simulation hangs it off the page rather than off the slot row — see
- *      `SimPage.indexedColumns`.
- *   3. **Provisioning capacity is not claiming it.** Every one of the sixty
- *      rows lands `free` with `field_id = null`. The Watcher provisions and
- *      stops; reserving a slot is somebody else's job, and that separation is
- *      the thing section D exists to show.
+ *      `SimPage.indexedColumns`. Since 0043 that list is also the page's whole
+ *      column set, which is why nothing here needs a second field for it.
+ *   3. **Provisioning capacity is not claiming it.** Every row lands `free`
+ *      with `field_id = null`. The Watcher provisions and stops; reserving a
+ *      slot is somebody else's job, and that separation is the thing section D
+ *      exists to show.
  */
 
 import { emit } from './emit';
 import { line } from './events';
-import { allSlotColumns, familyOfColumn } from './ddl';
+import { familyOfColumn } from './ddl';
 import type { SimPage, SimSlot } from './types';
 import { simNow, type SimWorld } from './world';
 
@@ -36,10 +40,12 @@ export interface ProvisionResult {
 /**
  * `PageProvisioner::provision($filterableSlots)`.
  *
- * `indexedColumns` names the slot columns the new page should index. An empty
- * set is legal and means pure headroom — the engine's low-capacity trigger can
- * provision a page nobody is waiting on, and indexing speculatively is exactly
- * what ADR 0003 forbids.
+ * `indexedColumns` names the slot columns the new page carries, all of them
+ * indexed. **An empty set is not legal**: a page with no columns has no
+ * inventory rows, so it adds nothing to the capacity totals, never clears the
+ * trigger that asked for it, and would be provisioned again on the next tick.
+ * The engine throws on one; here the planner is what guarantees it, by
+ * declining to plan a page it would have named no column for.
  */
 export function provisionPage(
   world: SimWorld,
@@ -60,7 +66,7 @@ export function provisionPage(
     indexedColumns: [...indexedColumns],
   };
 
-  const slots: SimSlot[] = allSlotColumns().map(slotColumn => ({
+  const slots: SimSlot[] = indexedColumns.map(slotColumn => ({
     id: seq.slot++,
     pageId,
     slotColumn,

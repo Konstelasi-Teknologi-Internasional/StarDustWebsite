@@ -11,10 +11,34 @@
 import { allSlotColumns, familyOfColumn } from './ddl';
 import { isIndexedSlot } from './reserve';
 import type { SimField, SlotFamily } from './types';
-import { FAMILY_OF, liveSlotForField, type SimWorld } from './world';
+import { FAMILY_OF, FAMILY_SLOT_COUNTS, liveSlotForField, type SimWorld } from './world';
 
 /** The global free ratio below which the Watcher provisions. `Config`'s default. */
 export const CAPACITY_THRESHOLD = 0.2;
+
+/**
+ * Columns of **every** family a new page indexes over and above current demand
+ * — `Config::$pageIndexHeadroom`, whose default is 4, so a new page carries
+ * sixteen indexed columns rather than the one to three demand alone justifies.
+ *
+ * This is not a tuning knob the simulation invented. ADR 0042 found that under
+ * ADR 0034 an unindexed slot column cannot legally be occupied by anything, so
+ * a page's usable capacity is permanently whatever it indexed at birth and no
+ * later decision can widen it. Sizing to demand alone therefore gave a
+ * serially promoted three-field model three pages, with no way back: compaction
+ * refuses for want of indexed free slots and the Watcher reports `no_action`
+ * forever.
+ *
+ * The engine reaches this through an injected `IndexHeadroomPolicy` rather than
+ * an int, because ADR 0042 leaves the *rule* open between a flat `k`, a
+ * per-family table and a registry-derived count. `FlatIndexHeadroom` is what
+ * ships, and a flat constant is the faithful mirror of it; if the engine ever
+ * picks a different rule, this becomes a function and not a second policy
+ * decision taken here.
+ */
+export const PAGE_INDEX_HEADROOM = 4;
+
+const ALL_FAMILIES = Object.keys(FAMILY_SLOT_COUNTS) as SlotFamily[];
 
 export interface CapacitySnapshot {
   totalSlots: number;
@@ -183,15 +207,28 @@ export function planProvisioning(
 
   const lowCapacity = globalFreeRatio(snapshot) < threshold;
 
-  const trigger: ProvisioningTrigger =
+  let trigger: ProvisioningTrigger =
     starved.length > 0 ? 'unsatisfiable_demand' : lowCapacity ? 'low_capacity' : 'none';
 
-  const shouldProvision = trigger !== 'none';
+  let shouldProvision = trigger !== 'none';
+  const indexedColumns = shouldProvision ? indexedColumnsFor(snapshot, demand) : [];
+
+  // Since ADR 0043 a page is created with exactly the columns it indexes, so a
+  // plan naming none is a page with no inventory rows: it would add nothing to
+  // the totals, leave the ratio below threshold, and provision another empty
+  // page every tick. Unreachable while the headroom is above zero — the loop
+  // below runs over every family, not only the demanded ones — and kept because
+  // the engine keeps it, where the headroom is operator-tunable and `k = 0` is
+  // legal.
+  if (shouldProvision && indexedColumns.length === 0) {
+    shouldProvision = false;
+    trigger = 'none';
+  }
 
   return {
     shouldProvision,
     trigger,
-    indexedColumns: shouldProvision ? indexedColumnsFor(snapshot, demand) : [],
+    indexedColumns,
     starvedFamilies: starved,
     usableFree,
     usableTotal,
@@ -200,15 +237,29 @@ export function planProvisioning(
 }
 
 /**
- * Which columns the new page should index: enough of each demanded family to
- * cover its shortfall, floored at one and capped at the family's capacity.
+ * Which columns the new page should index — and since ADR 0043, therefore which
+ * columns it has at all: enough of each family to cover its shortfall, floored
+ * at one where somebody is waiting, widened to {@link PAGE_INDEX_HEADROOM}, and
+ * capped at the family's per-page capacity.
  *
- * The floor is not an optimisation. A page provisioned while a field waits on
- * that family must carry an index on at least one of its free columns, and that
- * binds the low-capacity path too, where the shortfall can be zero or negative.
+ * **Every family, not only the demanded ones.** That is the ADR 0042 change and
+ * the reason a page is now sixteen columns rather than one to three. Indexing
+ * only what was demanded was coherent while a non-filterable field could hold a
+ * slot for typed retrieval; once it could not, the unindexed remainder of a page
+ * stopped being capacity of any kind, and demand-sizing quietly became "one page
+ * per promotion".
  *
- * With no demand the set is empty and the page is pure headroom. Indexing
- * speculatively is exactly what the design forbids.
+ * The demanded floor is not an optimisation. A page provisioned while a field
+ * waits on that family must carry an index on at least one of its free columns,
+ * and that binds the low-capacity path too, where the shortfall can be zero or
+ * negative. It is applied here rather than folded into the headroom so that no
+ * headroom value, zero included, can break the starvation-freedom guarantee.
+ * It is **conditional on demand**, which is what keeps a zero headroom a
+ * degradation to demand-sizing rather than a rule that still indexes four.
+ *
+ * Family order is the declaration order (str, int, num, dt), not the demand
+ * map's. The result reaches `filterable_slots` on `page_provisioned` and
+ * `indexed_columns` on two Watcher lines, so it is observable.
  *
  * Capacity comes from the column list rather than a restated 25/15/10/10, so
  * the arithmetic here cannot drift from the DDL.
@@ -219,12 +270,38 @@ function indexedColumnsFor(
 ): string[] {
   const columns: string[] = [];
 
-  for (const family of demand.families) {
+  for (const family of ALL_FAMILIES) {
     const available = allSlotColumns().filter(c => familyOfColumn(c) === family);
-    const shortfall = demand.waiters[family].length - snapshot.indexedFree[family];
-    const take = Math.max(1, Math.min(shortfall, available.length));
+    const demanded = demand.waiters[family].length;
+    const shortfall = demanded - snapshot.indexedFree[family];
+    const want = Math.max(demanded > 0 ? 1 : 0, shortfall, PAGE_INDEX_HEADROOM);
+    const take = Math.max(0, Math.min(want, available.length));
     columns.push(...available.slice(0, take));
   }
 
   return columns;
+}
+
+/**
+ * What a provisioner would run against a database with no pages and nobody
+ * waiting — the sixteen-column shape, for the two places that show the DDL
+ * before any page exists.
+ *
+ * It asks the planner rather than restating the answer, so a page previewed on
+ * screen and a page actually provisioned cannot disagree.
+ */
+export function defaultPageColumns(): string[] {
+  const nothingProvisioned: CapacitySnapshot = {
+    totalSlots: 0,
+    totalFree: 0,
+    pagesInspected: 0,
+    indexedFree: emptyFamilyCounts(),
+    indexedTotal: emptyFamilyCounts(),
+  };
+
+  return indexedColumnsFor(nothingProvisioned, {
+    waiters: { str: [], int: [], num: [], dt: [] },
+    families: [],
+    totalWaiters: 0,
+  });
 }

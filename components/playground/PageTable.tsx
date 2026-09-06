@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { allSlotColumns, pageDdl } from '@/lib/sim/ddl';
+import { pageDdl } from '@/lib/sim/ddl';
 import type { SimEntry, SimPage } from '@/lib/sim/types';
-import { slotColumnsInUse, SLOTS_PER_PAGE, type SimWorld } from '@/lib/sim/world';
+import { slotColumnsInUse, type SimWorld } from '@/lib/sim/world';
 import TableView, { TABLE_ROW_LIMIT, type Column } from './TableView';
 import styles from './PageTable.module.css';
 
@@ -15,20 +15,24 @@ type Props = {
 /**
  * One `entry_slots_page_N` extension table.
  *
- * Its own component because it owns a piece of view state — how many of the 60
- * slot columns to show — and a hook cannot live inside `pages.map()`.
+ * Its own component because it owns a piece of view state — how many of the
+ * page's slot columns to show — and a hook cannot live inside `pages.map()`.
  *
  * Two facts this view exists to keep straight, both easy to blur:
  *
- * 1. **Every page has all 60 columns**, whether or not a field is using them.
- *    Showing only the occupied ones by default keeps the table readable, but
- *    the toggle has to be there or the empty 55 stop existing.
- * 2. **A column and an index on that column are different things.** Which of
- *    these columns are indexed was decided when the page was provisioned, and
- *    the engine stores the answer nowhere — it reads it back out of
- *    `information_schema` when it needs it. So it is marked on the *column
- *    header*, as a property of the page, and never as a field on the slot
- *    assignment row.
+ * 1. **A page carries exactly the columns it indexes** (ADR 0043), so how many
+ *    there are is a property of this page rather than a constant: four per
+ *    family under the default headroom, more where demand exceeded it. What the
+ *    toggle hides is therefore not "the unindexed remainder" — there is none —
+ *    but the indexed columns *no field has claimed yet*. Those are the headroom,
+ *    and they are what makes the next promotion of that type reserve without
+ *    waiting on a daemon.
+ * 2. **A column and an index on that column are different things**, even now
+ *    that every column here has one. Which columns are indexed was decided when
+ *    the page was provisioned, and the engine stores the answer nowhere — it
+ *    reads it back out of `information_schema` when it needs it. So it is marked
+ *    on the *column header*, as a property of the page, and never as a field on
+ *    the slot assignment row.
  */
 export default function PageTable({ page, world }: Props) {
   const [showAll, setShowAll] = useState(false);
@@ -39,8 +43,8 @@ export default function PageTable({ page, world }: Props) {
   const occupied = slotColumnsInUse(world, page.id);
 
   const slotColumns = showAll
-    ? allSlotColumns()
-    : allSlotColumns().filter(col => occupied.has(col));
+    ? page.indexedColumns
+    : page.indexedColumns.filter(col => occupied.has(col));
 
   const columns: Column<SimEntry>[] = [
     { key: 'entry_id', width: '80px', render: e => e.id },
@@ -48,12 +52,15 @@ export default function PageTable({ page, world }: Props) {
     ...slotColumns.map<Column<SimEntry>>(col => ({
       key: col,
       width: 'minmax(96px, 1fr)',
-      tag: page.indexedColumns.includes(col) ? (
+      // Unconditional, and that is the point: every column a page has is a
+      // column it indexes. The marker used to distinguish the handful that
+      // carried an index from the fifty-odd that did not.
+      tag: (
         <span className={styles.indexed} title="indexed on this page">
           {' '}
           ●
         </span>
-      ) : undefined,
+      ),
       render: e => {
         const value = e.slots[page.id]?.[col];
         return value === undefined || value === null ? (
@@ -70,14 +77,16 @@ export default function PageTable({ page, world }: Props) {
   return (
     <TableView<SimEntry>
       name={page.tableName}
-      note={`${page.indexedColumns.length} indexed of ${SLOTS_PER_PAGE}`}
+      note={`${occupied.size} claimed of ${page.indexedColumns.length} indexed`}
       about={
         <>
           The mirror. A filterable field&rsquo;s value is copied out of the JSON
           payload into whichever slot column the reserver gave it, so a filter can
-          read a real index instead of walking every document. Teal marks the columns
-          that carry one — the rest are storage without an index, which is what most
-          of a page is.
+          read a real index instead of walking every document. Every column here
+          carries an index — a page is created with exactly the columns it indexes,
+          because one without an index is a column no field is allowed to occupy.
+          The ones no field has claimed yet are the headroom the next promotion of
+          that type will take.
         </>
       }
       actions={
@@ -88,14 +97,14 @@ export default function PageTable({ page, world }: Props) {
           onClick={() => setShowAll(v => !v)}
         >
           {showAll
-            ? `showing all ${SLOTS_PER_PAGE}`
-            : `show all ${SLOTS_PER_PAGE} columns`}
+            ? `showing all ${page.indexedColumns.length}`
+            : `show all ${page.indexedColumns.length} columns`}
         </button>
       }
       rows={rows}
       rowKey={e => e.id}
       columns={columns}
-      // Up to 60 columns per row, so an uncapped seeded model is tens of
+      // A column per slot on the page, so an uncapped seeded model is still
       // thousands of cells. Empty through the write stage, and defused here
       // rather than left for the stage that fills it.
       maxRows={TABLE_ROW_LIMIT}

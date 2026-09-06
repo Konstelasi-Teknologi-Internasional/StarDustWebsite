@@ -74,7 +74,11 @@ export interface SimPage {
   provisionedAt: string;
   provisionedBy: string;
   /**
-   * Which of this page's slot columns carry a real index.
+   * This page's slot columns. Every one of them carries an index.
+   *
+   * It used to name the indexed *subset* of a fixed sixty; since a page is
+   * created with exactly the columns it indexes, the subset is the whole set,
+   * and the page's size is readable here and nowhere else.
    *
    * The engine stores this nowhere — it derives it from
    * `information_schema.STATISTICS` at runtime. Modelling it as a property of
