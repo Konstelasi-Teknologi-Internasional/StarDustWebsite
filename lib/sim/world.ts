@@ -67,6 +67,18 @@ import type {
  *     version on, a missing member of one of those four comes back as its
  *     default instead of `undefined`, so it is no longer a bump's job to
  *     prevent it.
+ * 4 — a page carries exactly the columns it indexes. `SimPage.indexedColumns`
+ *     went from naming a *subset* of a fixed sixty to naming the page's whole
+ *     column set, and `slots` holds one row per column rather than sixty per
+ *     page. Both are changes of *meaning* to members every v3 snapshot already
+ *     has, so nothing is missing and no merge repairs them — which is exactly
+ *     the case this constant is for. Restoring one produced a world that was
+ *     half of each and said so on screen: `stardust_slot_assignments` showing
+ *     sixty rows for a page the mirror rendered as one column, over a free
+ *     ratio of 1.0000 that counted fifty-nine slots no reservation could take.
+ *     A returning visitor would have been looking at the defect this change
+ *     removes, in the section whose whole promise is that these are the real
+ *     rows.
  *
  * `payloadDraft` arrived without a bump, as the first application of the rule
  * above: it is top-level, `seq` already carried `entry` and `sync`, and a v3
@@ -80,7 +92,7 @@ import type {
  * merge is what fixes it, and it repairs those snapshots in place rather than
  * discarding a returning visitor's schema.
  */
-export const SIM_SCHEMA_VERSION = 3;
+export const SIM_SCHEMA_VERSION = 4;
 
 /**
  * The **most** slots of each family a page can carry, 25/15/10/10.
