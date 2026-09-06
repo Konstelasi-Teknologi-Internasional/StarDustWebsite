@@ -281,22 +281,12 @@ export function tombstoneLiveSlot(
     fieldId: null,
     status: 'tombstoned',
     tombstonedAt: now,
-    // **A deliberate divergence from the engine, and the only one in this
-    // file.** The sweep starts from the beginning of the page, because a
-    // cursor left over from this column's previous life would make the sweep
-    // skip every row below it and leave the old field's values sitting in a
-    // column the next reserver is about to hand to a filter.
-    //
-    // The engine does not do this. `LiveSlotTombstoner::tombstone()` writes
-    // `field_id`, `status`, `tombstoned_at` and `updated_at` and leaves
-    // `sweep_cursor_id` alone; the Liberator's reclaim clears `status` and
-    // `field_id` and leaves it alone too; `SlotReserver` never touches it. So
-    // `SlotSweeper::sweep()`'s `$cursor = $slot->sweepCursorId ?? 0` reads the
-    // *previous* sweep's final cursor on the second tombstone of a recycled
-    // column. Found while verifying this stage, reported upstream, and
-    // deliberately not reproduced: the playground's headline reclaim demo
-    // would otherwise be teaching a bug.
-    sweepCursorId: 0,
+    // ADR 0045: a tombstone is the start of a sweep, and a sweep starts at
+    // the beginning of the page. Both annotations reset here, matching
+    // `LiveSlotTombstoner::tombstone()`. The reclaim preserves them, so
+    // what a reserved or free slot shows is its last sweep's record.
+    sweepCursorId: null,
+    sweepGapCount: 0,
     updatedAt: now,
   };
 
