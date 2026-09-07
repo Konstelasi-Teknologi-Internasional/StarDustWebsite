@@ -29,7 +29,7 @@
 /* Armed reads as a warning rather than as a second style of button: the next
    click discards whatever the visitor has built. */
 .armed {
-  border-color: #947cff55;
+  border-color: #bebebe55;
   background: var(--accent-soft);
   color: var(--accent);
 }

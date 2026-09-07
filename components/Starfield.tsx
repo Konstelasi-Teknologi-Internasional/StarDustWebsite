@@ -62,7 +62,7 @@ export default function Starfield() {
 
         const twinkle = reduced ? 0.6 : 0.55 + 0.45 * Math.sin(t / 1400 + s.tw);
         ctx.globalAlpha = 0.1 + s.z * 0.34 * twinkle;
-        ctx.fillStyle = s.z > 0.82 ? '#b9a9ff' : '#e3dff5';
+        ctx.fillStyle = s.z > 0.82 ? '#d4d4d4' : '#eaeaea';
         ctx.beginPath();
         ctx.arc(s.x, s.y, s.r * s.z, 0, Math.PI * 2);
         ctx.fill();

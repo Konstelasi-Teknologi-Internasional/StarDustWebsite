@@ -1,17 +1,17 @@
 /* ------------------------------------------------------------------
    StarDust — design tokens.
 
-   Dark cosmic-technical: near-black ground with a purple cast, matching
-   Konstelasi's brand (deep violet #311B92 on black) — one violet accent
-   for structure and one teal accent that means exactly "indexed". This
-   ramp is a single hue rotation of the pre-brand blue-black palette onto
-   Konstelasi's hue, keeping every value's lightness/saturation intact so
-   contrast ratios don't drift; only teal/amber/rose stay untouched below,
-   because colour carries meaning in the demos and that status ramp is
-   load-bearing, not decoration:
+   Dark and neutral, matching the star-field brand mark (OrbitMark), which
+   is pure black/white with no hue of its own. This used to be a violet
+   cast borrowed from Konstelasi's old gradient logo; when the mark went
+   monochrome, every structural token here was desaturated back to neutral
+   gray, preserving each value's lightness so contrast ratios don't drift —
+   the same discipline the violet rotation itself was built on. Only
+   teal/amber/rose stay saturated below, because colour carries meaning in
+   the demos and that status ramp is load-bearing, not decoration:
 
      teal   = ready / indexed / fast path
-     violet = assigned / in motion
+     accent = assigned / in motion (now neutral gray, not a hue)
      amber  = backfilling / pending / queued
      slate  = free / unindexed / JSON-only
      rose   = tombstoned / rejected / error
@@ -23,25 +23,25 @@
    ------------------------------------------------------------------ */
 
 :root {
-  --bg:            #07060c;
-  --bg-rgb:        7, 6, 12;
-  --bg-raised:     #0d0b16;
-  --panel:         #131020;
-  --panel-rgb:     19, 16, 32;
-  --panel-2:       #191528;
-  --border:        #252138;
-  --border-bright: #342e50;
-  --border-hover:  #453d68;
-  --well:          #0a0715;
+  --bg:            #090909;
+  --bg-rgb:        9, 9, 9;
+  --bg-raised:     #111111;
+  --panel:         #181818;
+  --panel-rgb:     24, 24, 24;
+  --panel-2:       #1f1f1f;
+  --border:        #2d2d2d;
+  --border-bright: #3f3f3f;
+  --border-hover:  #535353;
+  --well:          #0e0e0e;
 
-  --text:      #e9e7f3;
-  --text-dim:  #a09aba;
-  --text-faint:#655f82;
+  --text:      #ededed;
+  --text-dim:  #aaaaaa;
+  --text-faint:#717171;
 
-  --accent:      #947cff;
-  --accent-rgb:  148, 124, 255;
-  --accent-soft: #947cff22;
-  --on-accent:   #0c0a14;
+  --accent:      #bebebe;
+  --accent-rgb:  190, 190, 190;
+  --accent-soft: #bebebe22;
+  --on-accent:   #0f0f0f;
   --indexed:     #2fd4bd;
   --indexed-rgb: 47, 212, 189;
   --indexed-soft:#2fd4bd1f;
@@ -49,13 +49,6 @@
   --pending-soft:#f0b4291f;
   --danger:      #ff6b81;
   --danger-soft: #ff6b811f;
-
-  /* Konstelasi's own icon-treatment gradient (sampled from their live site,
-     not derived from the rotation above) — reserved for the brand mark
-     (OrbitMark) rather than general UI, so it stays a deliberate, rare
-     accent instead of diluting into every gradient on the page. */
-  --brand-a: #7b1fa2;
-  --brand-b: #311b92;
 
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo,
           Consolas, "Liberation Mono", monospace;
@@ -201,14 +194,14 @@ code, pre, kbd { font-family: var(--mono); }
 .btn:disabled { opacity: 0.42; cursor: not-allowed; }
 
 .btn-primary {
-  background: linear-gradient(180deg, #977fff, #785fe8);
-  border-color: #a08bff;
+  background: linear-gradient(180deg, #bfbfbf, #a4a4a4);
+  border-color: #c5c5c5;
   color: var(--on-accent);
   font-weight: 600;
 }
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(180deg, #a793ff, #8971f2);
-  border-color: #b4a3ff;
+  background: linear-gradient(180deg, #c9c9c9, #b2b2b2);
+  border-color: #d1d1d1;
 }
 
 /* ---------- data chrome ---------- */
@@ -230,7 +223,7 @@ code, pre, kbd { font-family: var(--mono); }
 .tag-pending { color: var(--pending); border-color: #f0b42955; background: var(--pending-soft); }
 .tag-json    { color: var(--text-faint); border-color: var(--border); }
 .tag-error   { color: var(--danger); border-color: #ff6b8155; background: var(--danger-soft); }
-.tag-accent  { color: var(--accent); border-color: #947cff55; background: var(--accent-soft); }
+.tag-accent  { color: var(--accent); border-color: #bebebe55; background: var(--accent-soft); }
 
 .dot {
   width: 7px; height: 7px; border-radius: 50%;
@@ -261,7 +254,7 @@ code, pre, kbd { font-family: var(--mono); }
   box-shadow: 0 8px 26px -8px rgba(0, 0, 0, 0.9);
 }
 
-.flyGhost--accent  { border-color: #947cff88; color: #c6b9ff; background: #1c1733; }
+.flyGhost--accent  { border-color: #bebebe88; color: #dcdcdc; background: #252525; }
 .flyGhost--indexed { border-color: #2fd4bd88; color: #8fe8da; background: #0f2a28; }
 .flyGhost--pending { border-color: #f0b42988; color: #f5cf7d; background: #2a2213; }
 .flyGhost--danger  { border-color: #ff6b8188; color: #ffa9b8; background: #2c1620; }

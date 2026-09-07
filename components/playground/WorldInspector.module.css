@@ -21,7 +21,7 @@
 .tab:hover { color: var(--text-dim); border-color: var(--border-hover); }
 
 .tabOn {
-  border-color: #947cff55;
+  border-color: #bebebe55;
   background: var(--accent-soft);
   color: var(--accent);
 }

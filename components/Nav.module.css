@@ -47,7 +47,7 @@
 
 /* The one entry that is a route rather than an anchor, marked as such. */
 .links a.keep { color: var(--accent); }
-.links a.keep:hover { color: #b9a8ff; }
+.links a.keep:hover { color: #d4d4d4; }
 
 .gh {
   font-size: 13.5px;

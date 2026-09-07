@@ -42,15 +42,15 @@
   tab-size: 4;
 }
 
-.comment { color: #5c557a; font-style: italic; }
+.comment { color: #74747c; font-style: italic; }
 .string  { color: #8fdcc0; }
 .key     { color: var(--accent); }
-.var     { color: #dbd7ec; }
+.var     { color: #e6e6e6; }
 .arg     { color: #f0b429; }
-.keyword { color: #a48bff; }
+.keyword { color: #cacaca; }
 .type    { color: #2fd4bd; }
 .number  { color: #f0b429; }
-.fn      { color: #b19fff; }
+.fn      { color: #d6d6d6; }
 .flag    { color: #f0b429; }
-.punct   { color: #726b91; }
-.plain   { color: #cec9e2; }
+.punct   { color: #8f8f95; }
+.plain   { color: #d9d9d9; }

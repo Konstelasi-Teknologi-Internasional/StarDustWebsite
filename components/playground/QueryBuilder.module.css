@@ -126,7 +126,7 @@
   font-size: 12px;
   padding: 3px 9px;
   border-radius: 999px;
-  border: 1px solid #947cff55;
+  border: 1px solid #bebebe55;
   background: var(--accent-soft);
   color: var(--accent);
   cursor: pointer;
@@ -171,7 +171,7 @@
 .iconBtn:hover { border-color: var(--border-hover); color: var(--text); }
 
 .iconBtnOn {
-  border-color: #947cff55;
+  border-color: #bebebe55;
   background: var(--accent-soft);
   color: var(--accent);
 }

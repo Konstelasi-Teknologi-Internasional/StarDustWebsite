@@ -45,7 +45,7 @@
 }
 
 .grad {
-  background: linear-gradient(100deg, #b9a9ff 0%, var(--accent) 42%, #2fd4bd 100%);
+  background: linear-gradient(100deg, #d4d4d4 0%, var(--accent) 42%, #828282 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

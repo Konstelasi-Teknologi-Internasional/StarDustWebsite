@@ -182,7 +182,7 @@
   color: var(--text-dim);
 }
 
-.workerBusy { border-color: #947cff55; background: var(--accent-soft); }
+.workerBusy { border-color: #bebebe55; background: var(--accent-soft); }
 .workerName { color: var(--text); }
 .worker em { font-style: normal; }
 .waiting { color: var(--pending); }

@@ -6,8 +6,8 @@
 }
 
 .live {
-  border-color: #947cff66;
-  box-shadow: 0 0 0 1px #947cff22, 0 10px 30px -18px rgba(148, 124, 255, 0.6);
+  border-color: #bebebe66;
+  box-shadow: 0 0 0 1px #bebebe22, 0 10px 30px -18px rgba(190, 190, 190, 0.6);
 }
 
 .paused { opacity: 0.78; }

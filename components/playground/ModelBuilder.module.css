@@ -328,7 +328,7 @@
   cursor: pointer;
   white-space: nowrap;
 }
-.reopen:hover { color: var(--accent); border-color: #947cff55; }
+.reopen:hover { color: var(--accent); border-color: #bebebe55; }
 
 .dim { color: var(--text-faint); font-size: 12px; }
 
@@ -352,9 +352,9 @@
   line-height: 1;
   padding: 6px 9px;
   border-radius: 5px;
-  border: 1px solid #947cff88;
-  background: #1c1733;
-  color: #c6b9ff;
+  border: 1px solid #bebebe88;
+  background: #252525;
+  color: #dcdcdc;
   box-shadow: 0 8px 26px -8px rgba(0, 0, 0, 0.9);
 }
 

@@ -32,7 +32,7 @@
   transition: border-color 320ms var(--ease), box-shadow 320ms var(--ease);
 }
 .daemonLive {
-  border-color: #947cff66;
+  border-color: #bebebe66;
   box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.12), 0 8px 30px -18px rgba(var(--accent-rgb), 0.7);
 }
 
@@ -165,7 +165,7 @@
 
 .exportFill {
   height: 100%;
-  background: linear-gradient(90deg, #947cff55, var(--accent));
+  background: linear-gradient(90deg, #bebebe55, var(--accent));
   transition: width 500ms linear;
 }
 
