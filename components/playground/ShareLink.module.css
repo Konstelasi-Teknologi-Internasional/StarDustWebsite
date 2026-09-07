@@ -1,0 +1,86 @@
+.trigger {
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.strip {
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dismiss {
+  font-family: var(--mono);
+  font-size: 11px;
+  border: 0;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  padding: 0;
+}
+.dismiss:hover { color: var(--text-dim); }
+
+.body { padding: 12px 14px 14px; }
+
+/* Wraps rather than scrolls on a narrow screen: the input is the thing being
+   read, and a copy button pushed off the right edge is a copy button nobody
+   can press. */
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.url {
+  flex: 1 1 260px;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--well);
+  color: var(--text-dim);
+  /* A share link can be four hundred characters. One line that scrolls beats
+     six lines that push the button below the fold. */
+  text-overflow: ellipsis;
+}
+.url:focus { outline: 1px solid var(--accent); color: var(--text); }
+
+.copy {
+  font-family: var(--mono);
+  font-size: 11px;
+  flex: 0 0 auto;
+}
+
+.note {
+  margin-top: 10px;
+  font-size: 13.5px;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+.note strong { color: var(--text); }
+
+/* The one thing on this panel a sender cannot see for themselves, so it reads
+   as a statement rather than as an error. */
+.caveat {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-faint);
+  line-height: 1.55;
+}
+
+.load {
+  margin-top: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+}

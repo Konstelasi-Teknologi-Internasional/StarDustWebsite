@@ -6,6 +6,7 @@ import { useReducedMotion } from '@/lib/useReducedMotion';
 import NowLine from './NowLine';
 import { usePlayground } from './PlaygroundContext';
 import { ScenarioButtons } from './ScenarioPicker';
+import { ShareButton } from './ShareLink';
 import styles from './ClockBar.module.css';
 
 const SPEED_LABELS = ['0.5×', '1×', '2×'] as const;
@@ -22,6 +23,8 @@ const SPEED_LABELS = ['0.5×', '1×', '2×'] as const;
 export default function ClockBar({
   onReset,
   onScenarioLoaded,
+  shareOpen,
+  onToggleShare,
 }: {
   onReset: () => void;
   /**
@@ -32,6 +35,14 @@ export default function ClockBar({
    * that has to clear it.
    */
   onScenarioLoaded: (id: ScenarioId) => void;
+  /**
+   * The share panel's open state, owned by the root for the reason the
+   * scenario strip's is: the panel it opens is a sibling of this bar in the
+   * page flow, and `reset world` has to be able to close a panel describing a
+   * world that no longer exists.
+   */
+  shareOpen: boolean;
+  onToggleShare: () => void;
 }) {
   const { world, dispatch } = usePlayground();
   const { clock } = world;
@@ -127,6 +138,8 @@ export default function ClockBar({
           onScenarioLoaded(id);
         }}
       />
+
+      <ShareButton open={shareOpen} onToggle={onToggleShare} />
 
       <button type="button" className={`btn ${styles.reset}`} onClick={onReset}>
         reset world

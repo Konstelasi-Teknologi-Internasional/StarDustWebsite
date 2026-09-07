@@ -21,6 +21,7 @@ import { watcherTick } from './daemons/watcher';
 import { emptyDraft, nextFieldName, type DraftField } from './draft';
 import { deleteField, deleteModel } from './delete';
 import { correlationId } from './emit';
+import { recipeActions, type LinkRecipe } from './link';
 import { renameField, renameModel } from './rename';
 import { demoteField, promoteField, retypeField } from './retype';
 import {
@@ -68,6 +69,11 @@ export type SimAction =
   | { type: 'world/reset' }
   /** Replay a preset script. Replaces the world — every script opens on a reset. */
   | { type: 'scenario/load'; id: ScenarioId }
+  /**
+   * Replay a shared link's recipe. Replaces the world for the same reason and
+   * by the same mechanism — `recipeActions()` opens on a reset too.
+   */
+  | { type: 'link/load'; recipe: LinkRecipe }
   /**
    * Apply one guided-tour step. Folded here rather than dispatched action by
    * action from the panel, on `scenario/load`'s precedent: one gesture is one
@@ -200,6 +206,19 @@ function apply(world: SimWorld, action: SimAction): SimWorld {
       if (scenario === undefined) return world;
       return scenario.actions.reduce(reduce, world);
     }
+
+    /**
+     * The same fold, over a recipe that arrived in a URL rather than one
+     * checked in here.
+     *
+     * It reaches `recipeActions()` already validated — `fromQuery()` discards
+     * anything it cannot vouch for whole — so this stays as thin as the case
+     * above. What it must not become is a second place that knows how a model
+     * is built: the actions are the ones the builder dispatches, so a change to
+     * the draft form reaches a shared link for free.
+     */
+    case 'link/load':
+      return recipeActions(action.recipe).reduce(reduce, world);
 
     case 'tour/step': {
       const step = tourStep(action.index);

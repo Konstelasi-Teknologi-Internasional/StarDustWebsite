@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import Footer from '@/components/Footer';
 import Nav from '@/components/Nav';
 import { tickMs } from '@/lib/sim/clock';
+import { fromQuery, type LinkRecipe } from '@/lib/sim/link';
 import { reduce } from '@/lib/sim/reduce';
 import { clear as clearSnapshot, load, save } from '@/lib/sim/persist';
 import { scenarioById, type ScenarioId } from '@/lib/sim/scenarios';
@@ -20,6 +21,7 @@ import { PlaygroundProvider } from './PlaygroundContext';
 import QueryBuilder from './QueryBuilder';
 import { ScenarioStrip } from './ScenarioPicker';
 import SchemaEvolver from './SchemaEvolver';
+import { ShareStrip, SharedLinkStrip } from './ShareLink';
 import SimulationNotice from './SimulationNotice';
 import TableInspector from './TableInspector';
 import { TourPanel, TourToggle } from './TourPanel';
@@ -51,6 +53,28 @@ export default function Playground() {
    */
   const [stepIndex, setStepIndex] = useState<number | null>(null);
   const step = stepIndex === null ? undefined : tourStep(stepIndex);
+
+  // Which preset is parked, if any. Deliberately component state rather than a
+  // member of `SimWorld`: it has no column behind it, and a reload landing on a
+  // parked world with no strip is a correct world, not a broken one.
+  //
+  // It sits up here beside the tour cursor rather than below the effects, where
+  // it used to, because `applyRecipe` writes both and has to be declared before
+  // the mount effect that calls it.
+  const [scenarioId, setScenarioId] = useState<ScenarioId | null>(null);
+  const scenario = scenarioId === null ? undefined : scenarioById(scenarioId);
+
+  /** Whether the share panel is open. The bar holds the button, not the state. */
+  const [shareOpen, setShareOpen] = useState(false);
+
+  /**
+   * A link that arrived over a world the visitor had already built.
+   *
+   * Held rather than applied, on the scenario picker's precedent: replacing a
+   * populated world is a gesture that gets confirmed, and a link somebody else
+   * wrote has less claim on it than a button on this page does.
+   */
+  const [pendingLink, setPendingLink] = useState<LinkRecipe | null>(null);
 
   // Which sections are on screen, and the milestones the visitor is told
   // about. Both derived — nothing here joins `SimWorld`. The feed stands down
@@ -89,6 +113,45 @@ export default function Playground() {
     [reduced],
   );
 
+  /**
+   * Apply a shared link: fold its recipe, then put the cursor where it says.
+   *
+   * One dispatch rather than one per replayed action, on `scenario/load`'s
+   * precedent — one gesture is one commit and one snapshot save. Both cursors
+   * are set from the recipe rather than cleared, because a link is exactly one
+   * of three things and two of them *are* a cursor position.
+   *
+   * `resync()` for the reason a scenario needs it: the fold produces a whole
+   * history in a single commit, and a stack of cards about things the visitor
+   * did not watch happen would bury the world they were just handed.
+   *
+   * **Idempotent, which is what makes it safe in a mount effect.** Every recipe
+   * replays from `world/reset`, so StrictMode's double-invoke lands on the same
+   * world the first pass produced.
+   */
+  const applyRecipe = useCallback(
+    (recipe: LinkRecipe) => {
+      dispatch({ type: 'link/load', recipe });
+      setScenarioId(recipe.scenario);
+      setStepIndex(recipe.step);
+      setPendingLink(null);
+      resync();
+
+      if (recipe.step !== null) {
+        const landing = tourStep(recipe.step);
+        if (landing !== undefined) {
+          document.getElementById(landing.section)?.scrollIntoView({
+            // The site's rule under reduced motion is to arrive rather than
+            // travel, the same call `goToStep` makes.
+            behavior: reduced ? 'auto' : 'smooth',
+            block: 'start',
+          });
+        }
+      }
+    },
+    [reduced, resync],
+  );
+
   // Snapshot restore happens after mount, never during render. The page is a
   // static export: its HTML is built from emptyWorld(), and reading
   // localStorage on the first client render would guarantee a hydration
@@ -96,8 +159,24 @@ export default function Playground() {
   // change, so one bad deploy cannot strand a returning visitor on a page
   // that throws.
   useEffect(() => {
+    // A link beats a snapshot: arriving on a URL somebody sent is a more
+    // specific intent than coming back to what you had. `fromQuery` discards
+    // anything it cannot vouch for whole, so a mangled link reads as no link
+    // and the two branches below behave exactly as they did before it existed.
+    const shared = fromQuery(window.location.search);
     const stored = load();
-    if (stored) {
+    // Un-populated covers both no snapshot and an empty one; a visitor with
+    // nothing on screen has nothing to lose and gets the link applied outright.
+    const populated = stored !== null && (stored.models.length > 0 || stored.entries.length > 0);
+
+    if (shared !== null && !populated) {
+      applyRecipe(shared);
+    } else if (shared !== null && stored !== null) {
+      // Their world stays, the link waits. `SharedLinkStrip` is the offer.
+      dispatch({ type: 'world/hydrate', world: stored });
+      resync();
+      setPendingLink(shared);
+    } else if (stored) {
       dispatch({ type: 'world/hydrate', world: stored });
       // A restored world arrives carrying its whole retained log. Without
       // this the feed would greet a returning visitor with two hundred cards
@@ -114,9 +193,32 @@ export default function Playground() {
       dispatch({ type: 'tour/step', index: 0 });
     }
     setHydrated(true);
-    // `resync` is stable; the restore must run exactly once regardless.
+    // `resync` and `applyRecipe` are stable; the restore must run exactly once
+    // regardless.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /**
+   * Take the link out of the address bar once it has been read.
+   *
+   * A separate effect on purpose, and it must not be folded into the one above:
+   * stripping the query there would make StrictMode's second invoke see a
+   * different URL from the first and take a different branch — hydrating a
+   * stored world over the link it had just applied.
+   *
+   * Consumed on arrival rather than on load, even while an offer is pending.
+   * The alternative keeps the link copyable, at the price of replaying it over
+   * whatever the visitor builds next every time they refresh, which is the
+   * worse of the two failures: the share panel can regenerate a link for any
+   * world at any time, and a silently reverted afternoon cannot be undone.
+   */
+  useEffect(() => {
+    if (!hydrated || window.location.search === '') return;
+    // The hash is kept: `trailingSlash: true` means the path already ends in a
+    // slash, and a hand-authored `?step=6#query` would otherwise lose the
+    // anchor along with the parameter that was the thing being consumed.
+    window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }, [hydrated]);
 
   // Persistence is a side effect of the world changing, not part of the
   // reducer — StrictMode double-invokes reducers, and a reducer that wrote to
@@ -133,16 +235,12 @@ export default function Playground() {
     dispatch({ type: 'clock/tick' }),
   );
 
-  // Which preset is parked, if any. Deliberately component state rather than a
-  // member of `SimWorld`: it has no column behind it, and a reload landing on a
-  // parked world with no strip is a correct world, not a broken one.
-  const [scenarioId, setScenarioId] = useState<ScenarioId | null>(null);
-  const scenario = scenarioId === null ? undefined : scenarioById(scenarioId);
-
   const onReset = useCallback(() => {
     clearSnapshot();
     dispatch({ type: 'world/reset' });
-    // Both describe a world that no longer exists.
+    // All of these describe a world that no longer exists.
+    setShareOpen(false);
+    setPendingLink(null);
     setScenarioId(null);
     setStepIndex(null);
   }, []);
@@ -191,6 +289,8 @@ export default function Playground() {
 
           <ClockBar
             onReset={onReset}
+            shareOpen={shareOpen}
+            onToggleShare={() => setShareOpen(open => !open)}
             onScenarioLoaded={id => {
               setScenarioId(id);
               // A scenario replaces the world the tour was walking, so the tour
@@ -204,8 +304,30 @@ export default function Playground() {
               // needs no equivalent — the read position goes backwards there,
               // which `useNarration` recognises on its own.
               resync();
+              // The open panel described the world this just replaced.
+              setShareOpen(false);
             }}
           />
+
+          {/* Three strips, one slot, and they cannot collide: a link is only
+              pending before it has been applied, and applying it is what sets
+              the scenario. Each renders below the sticky bar rather than on it,
+              for the reason `ScenarioPicker` splits into two exports. */}
+          {hydrated && pendingLink !== null && (
+            <SharedLinkStrip
+              recipe={pendingLink}
+              onLoad={() => applyRecipe(pendingLink)}
+              onDismiss={() => setPendingLink(null)}
+            />
+          )}
+
+          {hydrated && shareOpen && (
+            <ShareStrip
+              scenarioId={scenarioId}
+              stepIndex={stepIndex}
+              onDismiss={() => setShareOpen(false)}
+            />
+          )}
 
           {scenario !== undefined && (
             <ScenarioStrip scenario={scenario} onDismiss={() => setScenarioId(null)} />
