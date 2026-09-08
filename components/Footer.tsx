@@ -35,6 +35,14 @@ const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] =
 export default function Footer() {
   return (
     <footer className={styles.footer}>
+      {/* PLACEMENT 3 — quiet closing signature. Remove this block alone to cut it. */}
+      <div className={`shell ${styles.signature}`}>
+        <OrbitMark size={96} className={styles.signatureMark} />
+        <p className={styles.tagline}>
+          Schemaless dynamic fields, queried at native SQL index speed.
+        </p>
+      </div>
+
       <div className={`shell ${styles.inner}`}>
         <div className={styles.brandCol}>
           <span className={styles.brand}>

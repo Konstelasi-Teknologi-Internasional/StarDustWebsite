@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import CodeBlock from './CodeBlock';
+import OrbitMark from './OrbitMark';
 import Starfield from './Starfield';
 import { REPO } from '@/lib/links';
 import styles from './Hero.module.css';
@@ -36,8 +37,13 @@ export default function Hero() {
   return (
     <section className={styles.hero} id="top">
       <Starfield />
+      {/* PLACEMENT 2 — ambient watermark. Remove this line alone to cut it. */}
+      <OrbitMark size={640} className={styles.watermark} />
 
       <div className={`shell ${styles.inner}`}>
+        {/* PLACEMENT 1 — hero centerpiece. Remove this line alone to cut it. */}
+        <OrbitMark size={104} className={styles.mark} />
+
         <a className={styles.badge} href="#status">
           <span className="dot" style={{ color: 'var(--pending)' }} />
           v0.3.0 pre-release · Vertical Schema Partitioning

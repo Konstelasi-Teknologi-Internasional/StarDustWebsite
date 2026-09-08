@@ -1,5 +1,6 @@
 type OrbitMarkProps = {
   size?: number;
+  className?: string;
 };
 
 /**
@@ -10,12 +11,13 @@ type OrbitMarkProps = {
  * gradient mark this replaced, it needs no per-render id and no useId().
  * `app/icon.svg` mirrors these paths for the favicon; keep both in sync.
  */
-export default function OrbitMark({ size = 20 }: OrbitMarkProps) {
+export default function OrbitMark({ size = 20, className }: OrbitMarkProps) {
   return (
     <svg
       width={size}
       height={size}
       viewBox="0 0 134.97235 134.97232"
+      className={className}
       aria-hidden="true"
       focusable="false"
     >

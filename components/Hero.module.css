@@ -5,6 +5,29 @@
   padding-bottom: clamp(56px, 7vw, 88px);
 }
 
+/* PLACEMENT 2 — ambient watermark */
+.watermark {
+  position: absolute;
+  top: clamp(80px, 14vw, 150px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: clamp(500px, 60vw, 680px);
+  height: clamp(500px, 60vw, 680px);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  opacity: 0.08;
+}
+
+@media (max-width: 640px) {
+  .watermark {
+    top: 150px;
+    width: clamp(340px, 85vw, 460px);
+    height: clamp(340px, 85vw, 460px);
+    opacity: 0.05;
+  }
+}
+
 .inner {
   position: relative;
   z-index: 1;
@@ -12,6 +35,15 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+}
+
+/* PLACEMENT 1 — hero centerpiece */
+.mark {
+  width: clamp(96px, 12vw, 120px);
+  height: clamp(96px, 12vw, 120px);
+  margin-bottom: clamp(20px, 2.8vw, 28px);
+  flex-shrink: 0;
+  filter: drop-shadow(0 0 28px rgba(255, 255, 255, 0.14)) drop-shadow(0 16px 36px rgba(0, 0, 0, 0.75));
 }
 
 .badge {
