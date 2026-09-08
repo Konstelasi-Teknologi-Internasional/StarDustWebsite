@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://stardust.konstelasi.co.id/sitemap.xml
+

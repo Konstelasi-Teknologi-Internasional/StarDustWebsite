@@ -27,8 +27,21 @@ export const metadata: Metadata = {
     url: '/playground/',
     siteName: 'StarDust',
     locale: 'en_US',
+    images: [
+      {
+        url: '/icon.svg',
+        width: 1200,
+        height: 630,
+        alt: 'StarDust Interactive Playground',
+      },
+    ],
   },
-  twitter: { card: 'summary_large_image', title: 'StarDust playground', description },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'StarDust Playground',
+    description,
+    images: ['/icon.svg'],
+  },
 };
 
 export default function PlaygroundPage() {
