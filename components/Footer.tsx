@@ -8,7 +8,7 @@ import {
   REPO,
   SITE_REPO,
 } from '@/lib/links';
-import OrbitMark from './OrbitMark';
+import BrandMark from './BrandMark';
 import styles from './Footer.module.css';
 
 const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [
@@ -37,7 +37,7 @@ export default function Footer() {
     <footer className={styles.footer}>
       {/* PLACEMENT 3 — quiet closing signature. Remove this block alone to cut it. */}
       <div className={`shell ${styles.signature}`}>
-        <OrbitMark size={96} className={styles.signatureMark} />
+        <BrandMark size={96} className={styles.signatureMark} />
         <p className={styles.tagline}>
           Schemaless dynamic fields, queried at native SQL index speed.
         </p>
@@ -46,7 +46,7 @@ export default function Footer() {
       <div className={`shell ${styles.inner}`}>
         <div className={styles.brandCol}>
           <span className={styles.brand}>
-            <OrbitMark size={18} />
+            <BrandMark size={18} />
             StarDust
           </span>
           <p className={styles.tag}>

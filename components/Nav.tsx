@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { REPO } from '@/lib/links';
-import OrbitMark from './OrbitMark';
+import BrandMark from './BrandMark';
 import styles from './Nav.module.css';
 
 // Root-relative, not bare fragments. A bare `#mirror` resolves against
@@ -73,7 +73,7 @@ export default function Nav() {
     <header ref={headerRef} className={`${styles.bar} ${stuck || open ? styles.stuck : ''}`}>
       <div className={`shell ${styles.inner}`}>
         <a href="/#top" className={styles.brand} onClick={close}>
-          <OrbitMark size={20} />
+          <BrandMark size={20} />
           StarDust
         </a>
 
