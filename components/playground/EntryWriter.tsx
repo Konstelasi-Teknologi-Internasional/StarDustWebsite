@@ -541,13 +541,15 @@ export default function EntryWriter() {
           />
 
           {/* ---- the log ---- */}
-          <EventLog
-            events={world.events}
-            sources={['api', 'bulk_api']}
-            title="what the write path logged"
-            note="source=api · source=bulk_api"
-            empty="Nothing yet. Defining a model logs a message rather than an event, so this stays empty until the first write."
-          />
+          <div className={styles.log}>
+            <EventLog
+              events={world.events}
+              sources={['api', 'bulk_api']}
+              title="what the write path logged"
+              note="source=api · source=bulk_api"
+              empty="Nothing yet. Defining a model logs a message rather than an event, so this stays empty until the first write."
+            />
+          </div>
         </>
       )}
 

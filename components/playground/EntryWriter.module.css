@@ -367,3 +367,8 @@ input.payloadKey {
 }
 
 .seedNote { color: var(--text-faint) !important; font-size: 12.5px !important; }
+
+/* `EventLog` carries no margin of its own — every caller wraps it (see
+   SchemaEvolver.module.css's `.log`). Without this it sat flush against
+   `.seed` above it. */
+.log { margin-top: 18px; }
