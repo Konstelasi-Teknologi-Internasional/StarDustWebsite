@@ -66,13 +66,21 @@
   flex: none;
 }
 
+/* Icon-only, so both axes need the WCAG 2.5.8 floor — `min-width` alongside
+   `min-height`, unlike the text buttons this file's other dismiss shares its
+   shape with, where the label already sets the width. */
 .close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
   border: 0;
   background: transparent;
   color: var(--text-faint);
   font-size: 16px;
   line-height: 1;
-  padding: 0 2px;
+  padding: 0;
   cursor: pointer;
   flex: none;
 }

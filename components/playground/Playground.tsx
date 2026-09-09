@@ -5,6 +5,7 @@ import Footer from '@/components/Footer';
 import Nav from '@/components/Nav';
 import { tickMs } from '@/lib/sim/clock';
 import { fromQuery, type LinkRecipe } from '@/lib/sim/link';
+import type { FeedSection } from '@/lib/sim/notify';
 import { reduce } from '@/lib/sim/reduce';
 import { clear as clearSnapshot, load, save } from '@/lib/sim/persist';
 import { scenarioById, type ScenarioId } from '@/lib/sim/scenarios';
@@ -28,6 +29,30 @@ import { TourPanel, TourToggle } from './TourPanel';
 import { useNarration } from './useNarration';
 import { useSectionVisibility } from './useSectionVisibility';
 import styles from './Playground.module.css';
+
+/**
+ * Scroll to a section and hand it keyboard focus, for both gestures that land
+ * a visitor somewhere specific — a tour step and a shared link's `?step=`.
+ *
+ * Each of the six `<section>` elements carries `tabIndex={-1}`: not in the
+ * tab order on its own, but focusable from here, so `aria-labelledby`
+ * announces the section a keyboard or screen-reader visitor was just taken
+ * to, and the very next Tab reaches that section's own controls rather than
+ * whatever the document order would have offered instead — which, standing
+ * at the fixed dock, is nothing this section owns at all.
+ *
+ * `preventScroll: true` because the scroll above is already doing the
+ * moving, in whichever mode `reduced` calls for; a plain `.focus()` would
+ * jump the viewport a second time and fight the smooth scroll mid-flight.
+ */
+function goToSection(section: FeedSection, reduced: boolean): void {
+  const el = document.getElementById(section);
+  el?.scrollIntoView({
+    behavior: reduced ? 'auto' : 'smooth',
+    block: 'start',
+  });
+  el?.focus({ preventScroll: true });
+}
 
 /**
  * The playground's single stateful root.
@@ -103,11 +128,8 @@ export default function Playground() {
       const next = tourStep(index);
       if (next === undefined) return;
       setStepIndex(index);
-      document.getElementById(next.section)?.scrollIntoView({
-        // The site's rule under reduced motion is to arrive rather than travel.
-        behavior: reduced ? 'auto' : 'smooth',
-        block: 'start',
-      });
+      // The site's rule under reduced motion is to arrive rather than travel.
+      goToSection(next.section, reduced);
       dispatch({ type: 'tour/step', index });
     },
     [reduced],
@@ -140,12 +162,9 @@ export default function Playground() {
       if (recipe.step !== null) {
         const landing = tourStep(recipe.step);
         if (landing !== undefined) {
-          document.getElementById(landing.section)?.scrollIntoView({
-            // The site's rule under reduced motion is to arrive rather than
-            // travel, the same call `goToStep` makes.
-            behavior: reduced ? 'auto' : 'smooth',
-            block: 'start',
-          });
+          // The site's rule under reduced motion is to arrive rather than
+          // travel, the same call `goToStep` makes.
+          goToSection(landing.section, reduced);
         }
       }
     },
@@ -250,7 +269,7 @@ export default function Playground() {
   return (
     <PlaygroundProvider value={value}>
       <Nav />
-      <main className={styles.main}>
+      <main id="main" className={styles.main}>
         <div className="shell">
           <header className={styles.head}>
             <p className="eyebrow">playground</p>
@@ -347,6 +366,16 @@ export default function Playground() {
         </div>
       </main>
       <Footer />
+
+      {/* On a phone the fixed dock spans the width and sits over whatever the
+          scroll position lands on last — without this, the bottom of
+          `Footer` is permanently covered by whichever of `TourPanel` or
+          `NarrationFeed` is mounted, because a `position: fixed` panel covers
+          the same viewport rows no matter how far the document scrolls.
+          `--dock-h` is published by whichever one is actually on screen; zero
+          otherwise, and above the breakpoint where the dock doesn't span full
+          width, the rule below does nothing at all. */}
+      <div aria-hidden="true" className={styles.dockGutter} />
 
       {/* Outside the shell: both are `position: fixed`, and nesting them inside
           a scrolling column would only invite a future `overflow` on an

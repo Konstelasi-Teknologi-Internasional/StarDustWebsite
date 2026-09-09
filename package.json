@@ -13,7 +13,8 @@
     "verify:narration": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-narration.js",
     "verify:lifecycles": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-lifecycles.js",
     "verify:tour": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-tour.js",
-    "verify:link": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-link.js"
+    "verify:link": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-link.js",
+    "verify:contrast": "tsc -p tsconfig.scripts.json && node .scenario-build/scripts/verify-contrast.js"
   },
   "dependencies": {
     "next": "15.5.4",

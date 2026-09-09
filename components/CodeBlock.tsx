@@ -39,7 +39,16 @@ export default function CodeBlock({ code, lang, title, copyable = false, classNa
           )}
         </div>
       )}
-      <pre className={styles.pre}>
+      {/* Focusable and scrollable by keyboard, `EventLog`'s precedent — a
+          wide snippet's tail is otherwise reachable by pointer only. `title`
+          names it when given; every caller without one passes `lang`, which
+          is enough to tell one code block from another. */}
+      <pre
+        className={styles.pre}
+        tabIndex={0}
+        role="region"
+        aria-label={title || `${lang} code`}
+      >
         <code>
           {tokens.map((t, i) => (
             <span key={i} className={styles[t.kind] ?? undefined}>

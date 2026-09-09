@@ -36,7 +36,12 @@
 
   --text:      #ededed;
   --text-dim:  #aaaaaa;
-  --text-faint:#717171;
+  /* The dimmest of the three, and still held to 4.5:1 against every surface
+     it lands on (bg through panel-2) — it is not decoration here, it carries
+     table headers, truncation notes and empty-table explanations. Checked by
+     `npm run verify:contrast`, which is what would catch a future value that
+     reads as "faint enough" without being measured. */
+  --text-faint:#8a8a8a;
 
   --accent:      #bebebe;
   --accent-rgb:  190, 190, 190;
@@ -105,6 +110,55 @@ code, pre, kbd { font-family: var(--mono); }
 }
 
 /* ---------- shared layout primitives ---------- */
+
+/**
+ * Visually hidden, still reachable by assistive tech — the standard
+ * clip-to-1px pattern rather than `display: none`, which pulls the content
+ * out of the accessibility tree entirely.
+ *
+ * Shared rather than duplicated: `ModelBuilder.module.css` carried its own
+ * copy under a hashed name (`.srOnly`, for the live-region announcing a
+ * commit) until this landed, and the skip link below needs the identical
+ * rule under a name a plain anchor can reach without a CSS module.
+ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/**
+ * The first focusable thing on every page, landing past the nav's six links
+ * and the sticky clock bar's controls — both stand between a keyboard visitor
+ * and the actual content on every tab pass. Hidden until focused, per the
+ * `.sr-only` pattern above; visible and above the nav (z-index 40) the moment
+ * Tab reaches it.
+ */
+.skip-link {
+  z-index: 50;
+}
+.skip-link:focus {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: auto;
+  height: auto;
+  padding: 10px 16px;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  background: var(--bg-raised);
+  color: var(--text);
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius-sm);
+}
 
 .shell {
   width: 100%;

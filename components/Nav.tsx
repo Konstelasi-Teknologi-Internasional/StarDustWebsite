@@ -70,61 +70,69 @@ export default function Nav() {
   }, [open, close]);
 
   return (
-    <header ref={headerRef} className={`${styles.bar} ${stuck || open ? styles.stuck : ''}`}>
-      <div className={`shell ${styles.inner}`}>
-        <a href="/#top" className={styles.brand} onClick={close}>
-          <BrandMark size={20} />
-          StarDust
-        </a>
+    <>
+      {/* First focusable element on every page. A bare fragment, not
+          root-relative like the links below: it always targets `#main` on
+          *this* document, and both routes render one. */}
+      <a href="#main" className="sr-only skip-link">
+        Skip to content
+      </a>
+      <header ref={headerRef} className={`${styles.bar} ${stuck || open ? styles.stuck : ''}`}>
+        <div className={`shell ${styles.inner}`}>
+          <a href="/#top" className={styles.brand} onClick={close}>
+            <BrandMark size={20} />
+            StarDust
+          </a>
 
-        <nav className={styles.links}>
-          {LINKS.map(l => (
-            <a key={l.href} href={l.href} className={l.keep ? styles.keep : undefined}>
-              {l.label}
-            </a>
-          ))}
-        </nav>
+          <nav className={styles.links}>
+            {LINKS.map(l => (
+              <a key={l.href} href={l.href} className={l.keep ? styles.keep : undefined}>
+                {l.label}
+              </a>
+            ))}
+          </nav>
 
-        <a className={styles.gh} href={REPO} target="_blank" rel="noreferrer">
-          GitHub ↗
-        </a>
-
-        <button
-          type="button"
-          className={styles.menuBtn}
-          aria-expanded={open}
-          aria-controls="nav-menu"
-          aria-label={open ? 'Close menu' : 'Open menu'}
-          onClick={() => setOpen(v => !v)}
-        >
-          <span className={`${styles.burger} ${open ? styles.burgerOpen : ''}`} aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-        </button>
-      </div>
-
-      {/* `hidden` rather than an unmounted subtree: the panel is small, and
-          keeping it in the DOM means the button's aria-controls always
-          resolves to a real element. */}
-      <div id="nav-menu" className={styles.menu} hidden={!open}>
-        <div className="shell">
-          {LINKS.map(l => (
-            <a
-              key={l.href}
-              href={l.href}
-              className={l.keep ? styles.keep : undefined}
-              onClick={close}
-            >
-              {l.label}
-            </a>
-          ))}
-          <a href={REPO} target="_blank" rel="noreferrer" onClick={close}>
+          <a className={styles.gh} href={REPO} target="_blank" rel="noreferrer">
             GitHub ↗
           </a>
+
+          <button
+            type="button"
+            className={styles.menuBtn}
+            aria-expanded={open}
+            aria-controls="nav-menu"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            onClick={() => setOpen(v => !v)}
+          >
+            <span className={`${styles.burger} ${open ? styles.burgerOpen : ''}`} aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+          </button>
         </div>
-      </div>
-    </header>
+
+        {/* `hidden` rather than an unmounted subtree: the panel is small, and
+            keeping it in the DOM means the button's aria-controls always
+            resolves to a real element. */}
+        <div id="nav-menu" className={styles.menu} hidden={!open}>
+          <div className="shell">
+            {LINKS.map(l => (
+              <a
+                key={l.href}
+                href={l.href}
+                className={l.keep ? styles.keep : undefined}
+                onClick={close}
+              >
+                {l.label}
+              </a>
+            ))}
+            <a href={REPO} target="_blank" rel="noreferrer" onClick={close}>
+              GitHub ↗
+            </a>
+          </div>
+        </div>
+      </header>
+    </>
   );
 }

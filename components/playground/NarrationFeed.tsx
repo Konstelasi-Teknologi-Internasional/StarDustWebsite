@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SECTION_LABELS } from '@/lib/sim/notify';
+import { usePublishHeightVar } from '@/lib/usePublishHeightVar';
 import type { FeedCard } from './useNarration';
 import styles from './NarrationFeed.module.css';
 
@@ -36,10 +37,17 @@ type Props = {
 export default function NarrationFeed({ cards, history, onDismiss }: Props) {
   const [open, setOpen] = useState(false);
 
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  // Called unconditionally, above the empty-state return below: this
+  // component occupies the same corner as `TourPanel` and stays mounted
+  // while its own dock appears and disappears with `cards`/`history`, so the
+  // hook has to run on every render to notice the swing between them.
+  usePublishHeightVar(dockRef, '--dock-h');
+
   if (cards.length === 0 && history.length === 0) return null;
 
   return (
-    <div className={styles.dock}>
+    <div ref={dockRef} className={styles.dock}>
       {open && (
         <div className={`panel ${styles.drawer}`}>
           <div className="panel-head">

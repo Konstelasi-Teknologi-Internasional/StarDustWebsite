@@ -65,9 +65,14 @@
   padding: 9px 14px 8px;
 }
 
+/* `min-height` rather than fixed `height`, on `ShareLink.dismiss`'s
+   precedent — only the hit area grows to the WCAG 2.5.8 floor. */
 .quiet {
   font-family: var(--mono);
   font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
   border: 0;
   background: transparent;
   color: var(--text-faint);

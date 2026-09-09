@@ -170,7 +170,11 @@ export default function TableView<Row>({
       {/* Outside `.body`, which scrolls horizontally with a wide table. */}
       {about && <p className={styles.about}>{about}</p>}
 
-      <div className={styles.body}>
+      {/* Focusable and scrollable by keyboard — `EventLog`'s precedent, and
+          without it the right-hand columns of every table on the page are
+          reachable by pointer only. The `role="table"`/`aria-label` inside
+          already names it, so no second label is added here. */}
+      <div className={styles.body} tabIndex={0}>
         <div className={styles.grid} role="table" aria-label={name}>
           <div className={styles.head} role="row" style={{ gridTemplateColumns: template }}>
             {columns.map(c => (

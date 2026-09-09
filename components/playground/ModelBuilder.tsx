@@ -113,7 +113,7 @@ export default function ModelBuilder() {
   const hasLocked = draft.fields.some(f => committedNames.has(f.name));
 
   return (
-    <section className={styles.section} id="define" aria-labelledby="define-title">
+    <section className={styles.section} id="define" aria-labelledby="define-title" tabIndex={-1}>
       <p className="eyebrow">section a</p>
       <h2 id="define-title" className={styles.title}>
         Define your models
@@ -273,7 +273,7 @@ export default function ModelBuilder() {
         </div>
       </div>
 
-      <p className={styles.srOnly} role="status" aria-live="polite">
+      <p className="sr-only" role="status" aria-live="polite">
         {status}
       </p>
 

@@ -294,7 +294,7 @@ export default function EntryWriter() {
   /* ---------------- render ---------------- */
 
   return (
-    <section className={styles.section} id="write" aria-labelledby="write-title">
+    <section className={styles.section} id="write" aria-labelledby="write-title" tabIndex={-1}>
       <p className="eyebrow">section c</p>
       <h2 id="write-title" className={styles.title}>
         Write entries

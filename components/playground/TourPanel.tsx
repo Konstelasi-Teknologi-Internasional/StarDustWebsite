@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { SECTION_LABELS } from '@/lib/sim/notify';
 import type { TourStep } from '@/lib/sim/tour';
+import { usePublishHeightVar } from '@/lib/usePublishHeightVar';
 import { usePlayground } from './PlaygroundContext';
 import styles from './TourPanel.module.css';
 
@@ -109,8 +110,15 @@ export function TourPanel({
 }) {
   const last = index === total - 1;
 
+  const dockRef = useRef<HTMLDivElement | null>(null);
+  // On a phone the dock spans the width and sits over whatever is behind it
+  // — `--dock-h` is how `Playground.module.css` reserves that much space at
+  // the foot of the page so the panel never covers the footer or the tail of
+  // section F, only below the breakpoint where the dock actually overlaps.
+  usePublishHeightVar(dockRef, '--dock-h');
+
   return (
-    <div className={styles.dock}>
+    <div ref={dockRef} className={styles.dock}>
       <div className={`panel ${styles.panel}`} role="region" aria-label="Guided tour">
         <div className={styles.head}>
           <span className="eyebrow">

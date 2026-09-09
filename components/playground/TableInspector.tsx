@@ -21,7 +21,7 @@ import styles from './TableInspector.module.css';
  */
 export default function TableInspector() {
   return (
-    <section className={styles.section} id="tables" aria-labelledby="tables-title">
+    <section className={styles.section} id="tables" aria-labelledby="tables-title" tabIndex={-1}>
       <p className="eyebrow">section b</p>
       <h2 id="tables-title" className={styles.title}>
         What that became in MySQL

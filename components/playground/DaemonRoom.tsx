@@ -30,7 +30,7 @@ export default function DaemonRoom() {
   const { world } = usePlayground();
 
   return (
-    <section className={styles.section} id="daemons" aria-labelledby="daemons-title">
+    <section className={styles.section} id="daemons" aria-labelledby="daemons-title" tabIndex={-1}>
       <p className="eyebrow">section d</p>
       <h2 id="daemons-title" className={styles.title}>
         The daemon control room

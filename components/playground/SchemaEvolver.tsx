@@ -59,7 +59,7 @@ export default function SchemaEvolver() {
   const { world } = usePlayground();
 
   return (
-    <section className={styles.section} id="evolve" aria-labelledby="evolve-title">
+    <section className={styles.section} id="evolve" aria-labelledby="evolve-title" tabIndex={-1}>
       <p className="eyebrow">section f</p>
       <h2 id="evolve-title" className={styles.title}>
         Change the schema while it is live

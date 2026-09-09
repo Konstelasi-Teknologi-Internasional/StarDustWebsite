@@ -17,3 +17,19 @@
   color: var(--text-dim);
 }
 .reducedNote strong { color: var(--text); font-family: var(--mono); }
+
+/* Zero above the breakpoint by default, so a desktop layout is unaffected
+   regardless of what `--dock-h` happens to hold. See `Playground.tsx` for
+   why this exists and what publishes the variable. */
+.dockGutter { height: 0; }
+
+@media (max-width: 640px) {
+  .dockGutter {
+    height: var(--dock-h, 0px);
+    transition: height 200ms var(--ease);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dockGutter { transition: none; }
+}

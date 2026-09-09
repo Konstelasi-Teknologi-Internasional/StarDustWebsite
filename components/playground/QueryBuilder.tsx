@@ -43,7 +43,7 @@ export default function QueryBuilder() {
   const fieldToAdd = fields.some(f => f.name === addField) ? addField : firstField;
 
   return (
-    <section className={styles.section} id="query" aria-labelledby="query-title">
+    <section className={styles.section} id="query" aria-labelledby="query-title" tabIndex={-1}>
       <p className="eyebrow">section e</p>
       <h2 id="query-title" className={styles.title}>
         Query it

@@ -41,6 +41,7 @@
   line-height: 1.7;
   tab-size: 4;
 }
+.pre:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .comment { color: #74747c; font-style: italic; }
 .string  { color: #8fdcc0; }
