@@ -3,8 +3,16 @@
   padding-top: 30px;
   border-top: 1px solid var(--border);
   /* Anchor target under a fixed nav plus the sticky clock bar. Matches every
-     other section module — the narration feed's jump links land here. */
-  scroll-margin-top: 124px;
+     other section module — the narration feed's jump links land here.
+     `--clockbar-h` is measured live (ClockBar.tsx) rather than guessed — see
+     ModelBuilder.module.css for why a fixed number here goes stale. */
+  scroll-margin-top: calc(64px + var(--clockbar-h, 96px) + 20px);
+}
+
+@media (max-width: 720px) {
+  /* Below this width the clock bar is `position: static` — an anchor only
+     has to clear the fixed nav, not the bar too. */
+  .section { scroll-margin-top: 76px; }
 }
 
 .title { font-size: clamp(20px, 2.4vw, 27px); }

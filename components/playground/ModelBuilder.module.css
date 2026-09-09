@@ -2,8 +2,19 @@
   margin-top: 34px;
   padding-top: 30px;
   border-top: 1px solid var(--border);
-  /* Anchor target under a fixed nav plus the sticky clock bar. */
-  scroll-margin-top: 124px;
+  /* Anchor target under a fixed nav plus the sticky clock bar. `--clockbar-h`
+     is measured live (ClockBar.tsx) rather than guessed, because the bar's
+     real height varies with viewport width and with what NowLine has to say
+     — a fixed number here goes stale the moment either changes. The 96px
+     fallback only matters for the one frame before that measurement lands. */
+  scroll-margin-top: calc(64px + var(--clockbar-h, 96px) + 20px);
+}
+
+@media (max-width: 720px) {
+  /* Below this width the clock bar is `position: static` (ClockBar.module.css)
+     — it scrolls away with the page, so an anchor only has to clear the fixed
+     nav, not the bar too. */
+  .section { scroll-margin-top: 76px; }
 }
 
 .title { font-size: clamp(20px, 2.4vw, 27px); }
@@ -22,7 +33,15 @@
 }
 
 .builder { display: grid; gap: 16px; min-width: 0; }
-.side { display: grid; gap: 14px; min-width: 0; position: sticky; top: 84px; }
+/* Sticks just below the clock bar, not at a guessed offset — see `.section`
+   above for why `--clockbar-h` is measured rather than hardcoded. */
+.side {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  position: sticky;
+  top: calc(64px + var(--clockbar-h, 96px) + 20px);
+}
 
 @media (max-width: 900px) {
   .side { position: static; }

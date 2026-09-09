@@ -1,5 +1,6 @@
 'use client';
 
+import { useLayoutEffect, useRef } from 'react';
 import { DAEMON_NAMES, SPEEDS, type SpeedIndex } from '@/lib/sim/clock';
 import type { ScenarioId } from '@/lib/sim/scenarios';
 import { useReducedMotion } from '@/lib/useReducedMotion';
@@ -48,11 +49,45 @@ export default function ClockBar({
   const { clock } = world;
   const reduced = useReducedMotion();
 
+  const barRef = useRef<HTMLDivElement | null>(null);
+
+  /**
+   * Publish this bar's real height as `--clockbar-h`, so every fixed offset
+   * downstream — the section anchors' `scroll-margin-top`, `ModelBuilder`'s
+   * sticky side column — reads it instead of guessing a pixel number.
+   *
+   * The guess used to live in five separate `.module.css` files as a bare
+   * `124px` / `84px`, and it went stale the moment {@link NowLine} added its
+   * second row: the bar got taller, nothing downstream noticed, and the
+   * result was the sticky bar permanently overlapping the thing below it
+   * rather than only on some viewport widths. `ResizeObserver` re-measures on
+   * every cause of that — the daemon list wrapping, `NowLine`'s text
+   * wrapping, a viewport resize — so the offset tracks the bar instead of a
+   * snapshot of it.
+   *
+   * `useLayoutEffect`, not `useEffect`: it has to land before the browser
+   * paints, or a downstream sticky element renders one frame at the stale
+   * fallback and visibly jumps.
+   */
+  useLayoutEffect(() => {
+    const el = barRef.current;
+    if (el === null || typeof ResizeObserver === 'undefined') return;
+
+    const publish = () => {
+      document.documentElement.style.setProperty('--clockbar-h', `${el.offsetHeight}px`);
+    };
+
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Which preset is parked, if any. Deliberately component state rather than a
   // member of `SimWorld`: it has no column behind it, and a reload landing on a
   // parked world with no strip is a correct world, not a broken one.
   return (
-    <div className={`panel ${styles.bar}`}>
+    <div ref={barRef} className={`panel ${styles.bar}`}>
       <div className={styles.group}>
         <button
           type="button"

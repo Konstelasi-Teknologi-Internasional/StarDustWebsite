@@ -4,6 +4,12 @@
   align-items: center;
   gap: 12px 18px;
   padding: 12px 14px;
+  /* Matches `.strip`'s gap below the bar (ScenarioPicker.module.css) — the
+     panel above it (SimulationNotice, or the reduced-motion note) would
+     otherwise touch it directly. Margin on the sticky element itself only
+     delays when it starts sticking; the stuck offset is still exactly
+     `top: 64px`, so this cannot reopen the overlap this file also fixes. */
+  margin-top: 10px;
   position: sticky;
   top: 64px;
   z-index: 20;
