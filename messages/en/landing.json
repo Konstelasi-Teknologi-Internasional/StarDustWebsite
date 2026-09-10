@@ -1,0 +1,66 @@
+{
+  "hero": {
+    "badge": "v0.3.0 pre-release · Vertical Schema Partitioning",
+    "titleLine1": "Schemaless dynamic fields,",
+    "titleLine2": "queried at native SQL index speed.",
+    "lede": "Give every tenant their own fields, then filter them like first-class columns. No separate search cluster. No EAV join swamp. Just MySQL 8, doing an index scan on data you never declared at migration time.",
+    "copy": "copy",
+    "copied": "copied",
+    "readSource": "Read the source",
+    "codeTitle": "filtering a user-defined field",
+    "scroll": "See what happens underneath"
+  },
+  "sections": {
+    "mirror": {
+      "eyebrow": "01 · where the data lives",
+      "title": "One row of truth, mirrored into an index.",
+      "lede": "The complete JSON payload is always the system of record. Fields you mark filterable are additionally mirrored into typed, indexed slot columns on a 1:1 extension page — so a filter reads a real index instead of scanning JSON. Edit the payload below and write it."
+    },
+    "joins": {
+      "eyebrow": "02 · why not EAV",
+      "title": "Every EAV condition is another self-join.",
+      "lede": "The classic attribute table makes a narrower question cost more, because each filtered attribute needs its own join and the intermediate result has to be carried through all of them. StarDust joins one page, once, no matter how many conditions you stack on it."
+    },
+    "lifecycle": {
+      "eyebrow": "03 · the honest caveat",
+      "title": "Filterable is a promise the daemons keep, not an instant.",
+      "lede": "This is the behaviour that trips up nearly everyone, so it gets its own section rather than a footnote. Marking a field filterable records an intention and returns immediately — two background daemons then do the work that makes filtering actually possible."
+    },
+    "daemons": {
+      "eyebrow": "04 · the moving parts",
+      "title": "Four daemons. No broker between them.",
+      "lede": "They never talk to each other directly — MySQL is the only coordination point, with claims taken under FOR UPDATE SKIP LOCKED and singletons held by advisory lock. Run more Reconcilers and Chroniclers for throughput; the Watcher and Liberator stay one apiece."
+    },
+    "status": {
+      "eyebrow": "05 · straight answers",
+      "title": "Whether you should actually use this.",
+      "lede": "StarDust is a v0.3.0 pre-release. main and the 0.3.x tags are a breaking architectural migration away from the legacy 0.2.x line, driven by scalability limits and OOM vulnerabilities in the old design. Neither line has reached 1.0. If you need something to run today, ^0.2.0-alpha.x is the more settled of the two and still receives critical fixes on support/v0.2 — but it is an alpha as well, and choosing it means adopting an architecture this project has already moved off."
+    },
+    "start": {
+      "eyebrow": "06 · get started",
+      "title": "Five minutes, one command.",
+      "lede": "Brings up MySQL, bootstraps the schema, seeds a sample model, runs a filtered query, and starts all four daemons."
+    }
+  },
+  "fit": {
+    "good": {
+      "heading": "a good fit if",
+      "items": [
+        "You need user-defined or per-tenant dynamic fields that are still filterable at native index speed, without standing up a search cluster.",
+        "You already run MySQL 8.0.13+ or Percona, and can keep background processes alive — systemd, supervisor, or containers.",
+        "You want a framework-neutral engine you drop in via Composer. No ORM, no query builder, nothing pulled into your app.",
+        "You can tolerate a newly filterable field becoming queryable shortly after the fact rather than instantly."
+      ]
+    },
+    "bad": {
+      "heading": "probably not a fit if",
+      "items": [
+        "Cron-only or shell-less shared hosting. Without a running Watcher, slot capacity is never replenished and new filterable writes fall back to unindexed JSON.",
+        "MariaDB, or MySQL 5.7 and older. Both are actively rejected at boot — CI keeps a job that expects the suite to fail on MariaDB.",
+        "Strong read-after-write consistency on filters immediately after a retype or promotion. The field serves from JSON until its backfill lands.",
+        "Full-text, fuzzy, or substring search. The default driver ships exact match, comparison, range, set membership, and anchored prefix — nothing else.",
+        "Page numbers, jump-to-page, or a total result count. Reads are cursor-paginated and forward-sequential, deliberately."
+      ]
+    }
+  }
+}

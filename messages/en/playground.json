@@ -1,0 +1,76 @@
+{
+  "simulationNotice": {
+    "title": "This is a simulation",
+    "description": "The engine is fidelity-accurate but it does not run real MySQL — the database, daemons and network latencies are emulated. The scenario is real code; the world it builds is not."
+  },
+  "sections": {
+    "define": "the model builder",
+    "tables": "the tables",
+    "write": "the entry writer",
+    "daemons": "the daemons",
+    "query": "the query builder",
+    "evolve": "the schema changer"
+  },
+  "modelBuilder": {
+    "title": "Model",
+    "addField": "Add field",
+    "fieldName": "name of field",
+    "declaredType": "declared type of {field}",
+    "moveUp": "move {field} up",
+    "moveDown": "move {field} down",
+    "remove": "remove {field}"
+  },
+  "pageTable": {
+    "title": "Tables",
+    "page": "page",
+    "columns": "columns",
+    "slots": "slots"
+  },
+  "entryWriter": {
+    "title": "Write",
+    "modelLabel": "Model",
+    "fields": "fields (JSON)",
+    "writeEntry": "Write",
+    "status": {
+      "mirrored": "mirrored into a slot",
+      "waiting": "filterable, waiting on a slot",
+      "jsonOnly": "JSON only",
+      "unknown": "unknown keys",
+      "queued": "{name} — queued for backfill"
+    }
+  },
+  "daemonRoom": {
+    "title": "four daemons, one stream"
+  },
+  "clockBar": {
+    "tick": "Advance exactly one tick",
+    "runUntilSteady": "Run until steady"
+  },
+  "queryBuilder": {
+    "title": "Query",
+    "filter": "filter",
+    "addCondition": "Add condition"
+  },
+  "scenarioPicker": {
+    "title": "Scenario",
+    "selectScenario": "Select a scenario"
+  },
+  "tourPanel": {
+    "title": "Tour",
+    "next": "Next",
+    "restart": "Restart"
+  },
+  "narrationFeed": {
+    "title": "Feed"
+  },
+  "eventLog": {
+    "title": "event stream"
+  },
+  "schemaEvolver": {
+    "title": "Evolve",
+    "promote": "Promote",
+    "retype": "Retype",
+    "rename": "Rename",
+    "demote": "Demote"
+  }
+}

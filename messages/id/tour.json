@@ -1,0 +1,68 @@
+{
+  "steps": {
+    "empty": {
+      "title": "Database kosong",
+      "body": "Tidak ada model, tidak ada field, tidak ada entry, dan tidak ada tabel page. StarDust mem-bootstrap satu set tabel registry yang tetap, hanya sekali, dan tidak pernah menambahkan yang lain — semuanya yang akan Anda definisikan menjadi baris, bukan DDL."
+    },
+    "draft": {
+      "title": "Tiga field, masih draft",
+      "body": "Model bernama places, dengan kota, negara, dan populasi. Belum ada yang dikomit — ini masih formulir. Setiap field dimulai sebagai tidak dapat difilter — begitulah arti is_filterable NOT NULL DEFAULT FALSE: field adalah hanya-JSON sampai seseorang meminta lebih."
+    },
+    "create": {
+      "title": "Dikomit",
+      "body": "Satu baris di stardust_models, tiga di stardust_fields, dan stardust_schema_version dimajukan tepat sekali. Tidak ada tabel page yang dibuat dan tidak ada slot yang dipesan, karena tidak ada yang dapat difilter di sini. Log peristiwa masih kosong juga — SchemaBuilder menulis pesan PSR-3, bukan peristiwa engine."
+    },
+    "tables": {
+      "title": "Apa itu di MySQL",
+      "body": "Model Anda adalah baris di dua tabel registry, dan itu saja. Tidak ada entry_slots_page_1 — extension page disediakan oleh Watcher ketika sesuatu benar-benar membutuhkan pengindeksan, tidak pernah ketika model didefinisikan."
+    },
+    "write-one": {
+      "title": "Satu entry, ditulis dengan tangan",
+      "body": "Seluruh payload pergi ke entry_data.fields sebagai JSON. Pemisah mencari slot aktif untuk masing-masing dari tiga field, tidak menemukan satu pun, dan tidak mencerminkan apa pun — dan juga tidak mengantrekan apa pun, karena tidak ada indeks yang tertinggal. Penulisan tanpa indeks di belakangnya tetap penulisan yang lengkap dan benar."
+    },
+    "seed": {
+      "title": "Enam ratus lagi",
+      "body": "Bulk ingest, tersegmentasi pada 500 baris per transaksi — jadi log menunjukkan dua komit bukan enam ratus. 601 baris sekarang, semuanya hanya-JSON, dan antrian sinkronisasi masih kosong."
+    },
+    "refused": {
+      "title": "Filter ditolak",
+      "body": "field_not_filterable, dilempar pada pre-flight sebelum satu baris pun dibaca. Nilainya masih ada di masing-masing dari 601 payload itu dan engine tidak akan mencarinya: filter membutuhkan kolom yang diindeks, dan kota tidak memilikinya. Ini adalah ketidaklengkapan jujur yang menjadi inti sisa tur ini."
+    },
+    "promote": {
+      "title": "Promosikan dengan Watcher dihentikan",
+      "body": "Registry mengatakan kota dapat difilter, dan kota tidak memiliki slot. Tidak ada page untuk dipesan, jadi promosi menunda penugasan — dan Reconciler sejak itu mencoba sekali dan mencatat capacity_wait. Tidak ada yang rusak. Daemon yang menyediakan kapasitas dihentikan, dan sistem mengatakan demikian daripada berpura-pura."
+    },
+    "provision": {
+      "title": "Mulai, dan satu tick melakukan tiga hal",
+      "body": "Watcher menyediakan entry_slots_page_1, dan pada tick yang sama Reconciler memesan i_str_01 dan mengalirkan 500 baris pertama ke dalamnya. Slot sedang backfilling: kota sudah bukan tanpa indeks, tapi juga belum bisa di-query, dan filter di atasnya masih ditolak. Status itu nyata, dan itulah mengapa dua daemon tidak pernah berbicara satu sama lain — mereka bertemu di MySQL."
+    },
+    "ready": {
+      "title": "Baris yang tersisa, dan pembalikannya",
+      "body": "Chunk terakhir mendarat, dan slot bergerak ke siap dalam transaksi yang sama yang menyelesaikannya. Itu promote_to_ready — dan itu satu-satunya saat field menjadi dapat difilter. Tidak ada status setengah terbuka di mana sebagian baris dapat dicari dan sisanya tidak."
+    },
+    "answered": {
+      "title": "Filter yang identik mengembalikan baris",
+      "body": "Filter tree yang sama, wire format yang sama, pembacaan terbatas dua-query yang sama — dan itu menjawab sekarang. Baris yang kembali adalah yang Anda ketik dengan tangan paling awal, disalin ke i_str_01 oleh backfill bersama dengan enam ratus di belakangnya."
+    },
+    "rename": {
+      "title": "Rename di bawah enam ratus baris",
+      "body": "Registry mengatakan locality segera. Tetapi entry_data.fields dikunci berdasarkan nama, jadi rename adalah rewrite dari setiap payload dalam model — dan Reconciler telah melakukan satu chunk 500-baris darinya. 500 baris berada di kunci baru, 101 masih ada di kunci lama, dan stardust_fields.previous_name menyimpan kota. Kolom itu adalah jembatan."
+    },
+    "unknown": {
+      "title": "Filter lama gagal dengan keras",
+      "body": "field_unknown — menurut registry, sudah tidak ada lagi field bernama kota. Penulisan menyatu pada nama baru dan filter menolak secara tegas. Asimetri itu disengaja: filter yang ditolak tidak kehilangan apa pun, sementara penulisan dengan kunci yang salah kehilangan data."
+    },
+    "bridged": {
+      "title": "Pembacaan menjembatani jendela bagaimanapun",
+      "body": "Terbaru duluan, jadi halaman ini seluruhnya berisi baris yang belum dicapai rewrite — dan masing-masing kembali di locality, diselesaikan melalui previous_name. Kunci lama tidak pernah muncul di hasil sama sekali, karena proyeksi dilakukan atas snapshot skema, dan snapshot hanya mengetahui nama saat ini."
+    },
+    "landed": {
+      "title": "Rewrite mendarat",
+      "body": "Chunk terakhir dikosongkan, previous_name kembali ke null dan checkpoint diselesaikan — semuanya dalam satu transaksi, karena pembaca yang menyegarkan di antara mereka akan kehilangan fallback sementara baris yang belum dimigrasikan masih ada. Jembatan ada hanya saat dibutuhkan."
+    },
+    "done": {
+      "title": "Itulah seluruh busur",
+      "body": "Definisikan, simpan, tulis, indeks, query, berkembang. Semuanya yang baru saja Anda tonton masih di sini — model, 601 baris, page, slot yang diindeks — dan setiap kontrol tidak terkunci sekarang. Hentikan daemon dan coba merusaknya."
+    }
+  }
+}

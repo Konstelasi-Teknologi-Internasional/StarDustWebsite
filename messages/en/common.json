@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "skipContent": "Skip to content",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "links": {
+      "howItWorks": "How it works",
+      "vsEav": "vs. EAV",
+      "fieldLifecycle": "Field lifecycle",
+      "daemons": "Daemons",
+      "playground": "Playground",
+      "getStarted": "Get started"
+    }
+  },
+  "footer": {
+    "tagline": "Schemaless dynamic fields, queried at native SQL index speed.",
+    "description": "MySQL-native Vertical Schema Partitioning for dynamic data models. Framework-neutral, MIT licensed.",
+    "copyright": "© {year} Konstelasi Teknologi Internasional",
+    "columns": {
+      "project": "Project",
+      "getIt": "Get it"
+    },
+    "links": {
+      "source": "Source",
+      "documentation": "Documentation",
+      "examples": "Examples",
+      "changelog": "Changelog",
+      "packagist": "Packagist",
+      "contributing": "Contributing",
+      "issues": "Issues",
+      "siteSource": "Source of this site"
+    }
+  },
+  "languageSwitch": {
+    "label": "Language",
+    "english": "English",
+    "indonesian": "Indonesian"
+  }
+}

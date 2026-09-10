@@ -1,0 +1,76 @@
+{
+  "simulationNotice": {
+    "title": "Ini adalah simulasi",
+    "description": "Engine ini meniru perilaku aslinya secara akurat, tapi tidak menjalankan MySQL sungguhan — database, daemon, dan latensi jaringan semuanya ditirukan. Skenarionya adalah kode asli; dunia yang dibangunnya bukan."
+  },
+  "sections": {
+    "define": "pembuat model",
+    "tables": "tabel-tabel",
+    "write": "penulis entry",
+    "daemons": "daemon",
+    "query": "pembuat query",
+    "evolve": "pengubah skema"
+  },
+  "modelBuilder": {
+    "title": "Model",
+    "addField": "Tambah field",
+    "fieldName": "nama field",
+    "declaredType": "tipe yang dideklarasikan dari {field}",
+    "moveUp": "pindahkan {field} ke atas",
+    "moveDown": "pindahkan {field} ke bawah",
+    "remove": "hapus {field}"
+  },
+  "pageTable": {
+    "title": "Tabel",
+    "page": "page",
+    "columns": "kolom",
+    "slots": "slot"
+  },
+  "entryWriter": {
+    "title": "Tulis",
+    "modelLabel": "Model",
+    "fields": "field (JSON)",
+    "writeEntry": "Tulis",
+    "status": {
+      "mirrored": "dicerminkan ke dalam slot",
+      "waiting": "dapat difilter, menunggu slot",
+      "jsonOnly": "hanya JSON",
+      "unknown": "kunci yang tidak diketahui",
+      "queued": "{name} — antri untuk backfill"
+    }
+  },
+  "daemonRoom": {
+    "title": "empat daemon, satu aliran"
+  },
+  "clockBar": {
+    "tick": "Majukan tepat satu tick",
+    "runUntilSteady": "Jalankan hingga stabil"
+  },
+  "queryBuilder": {
+    "title": "Query",
+    "filter": "filter",
+    "addCondition": "Tambah kondisi"
+  },
+  "scenarioPicker": {
+    "title": "Skenario",
+    "selectScenario": "Pilih skenario"
+  },
+  "tourPanel": {
+    "title": "Tur",
+    "next": "Berikutnya",
+    "restart": "Mulai Ulang"
+  },
+  "narrationFeed": {
+    "title": "Feed"
+  },
+  "eventLog": {
+    "title": "aliran peristiwa"
+  },
+  "schemaEvolver": {
+    "title": "Berkembang",
+    "promote": "Promosi",
+    "retype": "Retype",
+    "rename": "Rename",
+    "demote": "Turunkan"
+  }
+}

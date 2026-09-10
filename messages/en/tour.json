@@ -1,0 +1,68 @@
+{
+  "steps": {
+    "empty": {
+      "title": "An empty database",
+      "body": "No models, no fields, no entries, and no page tables. StarDust bootstraps a fixed set of registry tables once and never adds another one — everything you are about to define becomes rows, not DDL."
+    },
+    "draft": {
+      "title": "Three fields, still a draft",
+      "body": "A model called places, with city, country and population. Nothing is committed yet — this is a form. Every field starts non-filterable, which is what is_filterable NOT NULL DEFAULT FALSE means: a field is JSON-only until somebody asks for more."
+    },
+    "create": {
+      "title": "Committed",
+      "body": "One row in stardust_models, three in stardust_fields, and stardust_schema_version bumped exactly once. No page table was created and no slot reserved, because nothing here is filterable. The event log is still empty too — SchemaBuilder writes a PSR-3 message, not an engine event."
+    },
+    "tables": {
+      "title": "What that became in MySQL",
+      "body": "Your model is rows in two registry tables, and that is the whole of it. There is no entry_slots_page_1 — extension pages are provisioned by the Watcher when something actually needs indexing, never when a model is defined."
+    },
+    "write-one": {
+      "title": "One entry, written by hand",
+      "body": "The whole payload went into entry_data.fields as JSON. The splitter looked for a live slot for each of the three fields, found none, and mirrored nothing — and queued nothing either, because no index is falling behind. A write with no index behind it is still a complete, correct write."
+    },
+    "seed": {
+      "title": "Six hundred more",
+      "body": "Bulk ingest, chunked at 500 rows per transaction — so the log shows two commits rather than six hundred. 601 rows now, every one of them JSON-only, and the sync queue is still empty."
+    },
+    "refused": {
+      "title": "The filter is refused",
+      "body": "field_not_filterable, raised at pre-flight before a single row was read. The value is sitting in every one of those 601 payloads and the engine will not go looking: a filter needs an indexed column, and city has none. This is the honest incompleteness the rest of the tour is about."
+    },
+    "promote": {
+      "title": "Promote it with the Watcher stopped",
+      "body": "The registry says city is filterable, and city holds no slot. There was no page to reserve from, so the promotion deferred the assignment — and the Reconciler has since tried once and logged capacity_wait. Nothing is broken. The daemon that provisions capacity is stopped, and the system is saying so rather than pretending."
+    },
+    "provision": {
+      "title": "Start it, and one tick does three things",
+      "body": "The Watcher provisioned entry_slots_page_1, and on the same tick the Reconciler reserved i_str_01 and drained the first 500 rows into it. The slot is backfilling: city is neither unindexed nor queryable, and a filter on it is still refused. That state is real, and it is why the two daemons never talk to each other — they meet in MySQL."
+    },
+    "ready": {
+      "title": "The remaining rows, and the flip",
+      "body": "The final chunk landed, and the slot went to ready in the same transaction that finished it. That is promote_to_ready — and it is the only moment at which the field becomes filterable. There is no half-open state where some rows are searchable and the rest are not."
+    },
+    "answered": {
+      "title": "The identical filter returns the row",
+      "body": "Same tree, same wire format, same two-query bounded read — and it answers now. The row that comes back is the one you typed by hand at the very start, copied into i_str_01 by the backfill along with the six hundred behind it."
+    },
+    "rename": {
+      "title": "Rename it under six hundred rows",
+      "body": "The registry said locality immediately. But entry_data.fields is keyed by name, so a rename is a rewrite of every payload in the model — and the Reconciler has done one 500-row chunk of it. 500 rows are on the new key, 101 are still on the old one, and stardust_fields.previous_name holds city. That column is the bridge."
+    },
+    "unknown": {
+      "title": "The old filter fails loudly",
+      "body": "field_unknown — as far as the registry is concerned there is no field called city any more. Writes converge on the new name and filters refuse outright. The asymmetry is deliberate: a rejected filter loses nothing, and a mis-keyed write loses data."
+    },
+    "bridged": {
+      "title": "A read bridges the window anyway",
+      "body": "Newest first, so this page is entirely rows the rewrite has not reached — and every one of them comes back on locality, resolved through previous_name. The old key never appears in a result at all, because the projection is over the schema snapshot and the snapshot knows only the current name."
+    },
+    "landed": {
+      "title": "The rewrite lands",
+      "body": "The last chunk cleared, previous_name went back to null and the checkpoint completed — all in one transaction, because a reader refreshing between them would lose the fallback while un-migrated rows still existed. The bridge exists only while it is needed."
+    },
+    "done": {
+      "title": "That is the whole arc",
+      "body": "Define, store, write, index, query, evolve. Everything you just watched is still here — the model, the 601 rows, the page, the indexed slot — and every control is unlocked now. Stop a daemon and try to break it."
+    }
+  }
+}

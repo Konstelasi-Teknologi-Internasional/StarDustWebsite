@@ -1,0 +1,42 @@
+{
+  "scenarios": {
+    "promotionWindow": {
+      "title": "Jendela promosi",
+      "blurb": "Field ditandai dapat difilter saat Watcher dihentikan, dan 600 baris menunggu di belakangnya.",
+      "parked": "600 baris ditulis · kota dapat difilter tetapi tidak memiliki slot · Watcher dihentikan · filter di kota ditolak pada pre-flight. Reconciler sudah mencoba sekali dan mencatat capacity_wait, itulah sebabnya tidak ada yang bergerak.",
+      "nextStep": "Mulai Watcher, kemudian tekan jalankan. Tick berikutnya menyediakan page, memesan slot dan mengalirkan 500 baris pertama; dua tick kemudian 100 terakhir mendarat dan slot bergerak ke siap.",
+      "nextStepReduced": "Mulai Watcher, kemudian tekan langkah. Tick berikutnya menyediakan page, memesan slot dan mengalirkan 500 baris pertama; dua langkah kemudian 100 terakhir mendarat dan slot bergerak ke siap.",
+      "anchorLabel": "ruang kontrol daemon",
+      "stages": {
+        "refused": "filter di kota ditolak pada pre-flight",
+        "provision": "Watcher yang mulai berjalan menyediakan, memesan, dan mengalirkan satu chunk",
+        "ready": "dua tick lagi menyelesaikannya dan slot bergerak ke siap",
+        "answered": "filter yang identik sekarang mengembalikan baris"
+      }
+    },
+    "warmPath": {
+      "title": "Jalur hangat",
+      "blurb": "Kolom yang disapu kembali ke pool, dan itu yang diambil promosi berikutnya.",
+      "parked": "kota dipromosikan, di-backfill dan kemudian diturunkan · Liberator telah menyapu slot kembali ke bebas · i_str_01 bebas, masih diindeks, dan tidak membawa sisa · negara belum dapat difilter. Page juga menyimpan i_str_02–i_str_04, diindeks sejak disediakan dan tidak pernah diklaim oleh apa pun: itu adalah headroom, dan itulah mengapa promosi kedua hangat bahkan tanpa penurunan. Apa yang hanya putaran penuh memproduksi adalah kolom yang telah digunakan dan diserahkan kembali.",
+      "nextStep": "Promosikan negara di ruang kontrol daemon. Ini memesan di dalam transaksi promosi tanpa tick Watcher di antara — dan mengambil i_str_01, kolom daur ulang, bukan headroom yang tidak tersentuh, karena reserver menyusuri daftar bebas dari yang paling tua duluan. Kemudian tekan jalankan untuk mengalirkan backfill.",
+      "nextStepReduced": "Promosikan negara di ruang kontrol daemon. Ini memesan di dalam transaksi promosi tanpa tick Watcher di antara — dan mengambil i_str_01, kolom daur ulang, bukan headroom yang tidak tersentuh, karena reserver menyusuri daftar bebas dari yang paling tua duluan. Kemudian tekan langkah untuk mengalirkan backfill.",
+      "anchorLabel": "ruang kontrol daemon",
+      "stages": {
+        "recycled": "mempromosikan negara mengambil kolom yang didaur ulang, bukan headroom yang tidak tersentuh"
+      }
+    },
+    "halfMigrated": {
+      "title": "Dunia setengah dimigrasikan",
+      "blurb": "Field di-rename dengan 600 baris, sementara Reconciler dihentikan di tengah-tengah rewrite.",
+      "parked": "kota di-rename menjadi locality · registry sudah mengatakan locality · 500 payload telah ditulis ulang dan 100 masih disimpan dengan kunci kota · stardust_fields.previous_name memegang nama lama · Reconciler dihentikan. Tidak ada page dan tidak ada slot, karena rename tidak menyentuh apa pun.",
+      "nextStep": "Jalankan pembacaan di pembuat query. Setiap baris kembali di locality — termasuk seratus yang masih disimpan sebagai kota, yang diselesaikan pembacaan lewat fallback. Kemudian lanjutkan Reconciler dan tekan jalankan untuk menyelesaikan rewrite.",
+      "nextStepReduced": "Jalankan pembacaan di pembuat query. Setiap baris kembali di locality — termasuk seratus yang masih disimpan sebagai kota, yang diselesaikan pembacaan lewat fallback. Kemudian lanjutkan Reconciler dan tekan langkah untuk menyelesaikan rewrite.",
+      "anchorLabel": "pembuat query",
+      "stages": {
+        "bridged": "pembacaan di seluruh jendela mengembalikan setiap baris pada nama baru",
+        "unknown": "filter di nama lama ditolak, dan tidak dijembatani",
+        "landed": "melanjutkan Reconciler menulis ulang seratus terakhir dan mengakhiri jembatan itu"
+      }
+    }
+  }
+}

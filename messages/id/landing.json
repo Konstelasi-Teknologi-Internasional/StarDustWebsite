@@ -1,0 +1,66 @@
+{
+  "hero": {
+    "badge": "v0.3.0 pre-release · Vertical Schema Partitioning",
+    "titleLine1": "Field dinamis tanpa skema,",
+    "titleLine2": "diquery dengan kecepatan indeks SQL asli.",
+    "lede": "Berikan setiap tenant field mereka sendiri, lalu filter seperti kolom native. Tidak ada cluster pencarian terpisah. Tidak ada rawa join EAV. Hanya MySQL 8, melakukan scan indeks pada data yang tidak pernah Anda deklarasikan saat migrasi.",
+    "copy": "salin",
+    "copied": "disalin",
+    "readSource": "Baca kode sumber",
+    "codeTitle": "memfilter field yang ditentukan pengguna",
+    "scroll": "Lihat apa yang terjadi di balik layar"
+  },
+  "sections": {
+    "mirror": {
+      "eyebrow": "01 · tempat data berada",
+      "title": "Satu baris sumber utama, dicerminkan ke dalam indeks.",
+      "lede": "Payload JSON lengkap selalu merupakan sistem catatan sumber. Field yang Anda tandai sebagai dapat difilter secara tambahan dicerminkan ke kolom slot bertipe dan terindeks pada extension page 1:1 — jadi filter membaca indeks asli, bukan memindai JSON. Edit payload di bawah, lalu write."
+    },
+    "joins": {
+      "eyebrow": "02 · mengapa bukan EAV",
+      "title": "Setiap kondisi EAV adalah self-join lain.",
+      "lede": "Tabel atribut klasik membuat pertanyaan yang lebih spesifik menjadi lebih mahal, karena setiap atribut yang difilter memerlukan join-nya sendiri dan hasil antaranya harus dibawa melalui semuanya. StarDust cukup join satu page, sekali, tidak peduli berapa banyak kondisi yang Anda tumpuk di atasnya."
+    },
+    "lifecycle": {
+      "eyebrow": "03 · catatan jujur",
+      "title": "Dapat difilter adalah janji yang daemon jaga, bukan instan.",
+      "lede": "Ini adalah perilaku yang membingungkan hampir semua orang, jadi mendapat bagiannya sendiri, bukan sekadar catatan kaki. Menandai field sebagai dapat difilter itu instan — cuma mencatat permintaan itu dan langsung kembali. Pekerjaan yang sebenarnya, yang membuat penyaringan itu benar-benar berfungsi, dikerjakan setelahnya oleh dua daemon latar belakang."
+    },
+    "daemons": {
+      "eyebrow": "04 · bagian yang bergerak",
+      "title": "Empat daemon. Tidak ada broker di antara mereka.",
+      "lede": "Mereka tidak pernah berbicara langsung satu sama lain — MySQL adalah satu-satunya titik koordinasi, dengan klaim diambil melalui FOR UPDATE SKIP LOCKED dan singleton dipegang oleh advisory lock. Jalankan lebih banyak Reconciler dan Chronicler untuk throughput; Watcher dan Liberator tetap masing-masing satu."
+    },
+    "status": {
+      "eyebrow": "05 · jawaban langsung",
+      "title": "Apakah Anda sebaiknya benar-benar menggunakan ini.",
+      "lede": "StarDust adalah pre-release v0.3.0. main dan tag 0.3.x merupakan migrasi arsitektur besar yang menjauh dari lini 0.2.x lama, didorong oleh batasan skalabilitas dan kerentanan OOM pada desain lama. Tidak ada lini yang telah mencapai 1.0. Jika Anda memerlukan sesuatu untuk dijalankan hari ini, ^0.2.0-alpha.x adalah yang lebih stabil di antara keduanya dan masih menerima perbaikan kritis di support/v0.2 — tetapi itu juga masih alpha, dan memilihnya berarti mengadopsi arsitektur yang sudah ditinggalkan proyek ini."
+    },
+    "start": {
+      "eyebrow": "06 · mulai sekarang",
+      "title": "Lima menit, satu perintah.",
+      "lede": "Menyalakan MySQL, mem-bootstrap skema, menyemai model contoh, menjalankan query yang difilter, dan memulai keempat daemon."
+    }
+  },
+  "fit": {
+    "good": {
+      "heading": "cocok jika",
+      "items": [
+        "Anda memerlukan field dinamis yang ditentukan pengguna atau per-tenant yang masih dapat difilter dengan kecepatan indeks asli, tanpa menyiapkan cluster pencarian terpisah.",
+        "Anda sudah menjalankan MySQL 8.0.13+ atau Percona, dan dapat menjaga proses latar belakang tetap hidup — systemd, supervisor, atau kontainer.",
+        "Anda ingin engine yang netral terhadap framework, yang Anda pasang melalui Composer. Tidak ada ORM, tidak ada pembuat query, tidak ada yang ditarik ke aplikasi Anda.",
+        "Anda dapat mentoleransi field yang baru saja dapat difilter menjadi dapat di-query tidak lama setelahnya, bukan secara instan."
+      ]
+    },
+    "bad": {
+      "heading": "mungkin tidak cocok jika",
+      "items": [
+        "Hosting bersama yang hanya cron atau tanpa shell. Tanpa Watcher yang berjalan, kapasitas slot tidak pernah diisi ulang dan penulisan baru yang dapat difilter kembali ke JSON yang tidak diindeks.",
+        "MariaDB, atau MySQL 5.7 dan lebih lama. Keduanya secara aktif ditolak saat boot — CI menyimpan pekerjaan yang mengharapkan suite gagal di MariaDB.",
+        "Konsistensi read-after-write yang kuat pada filter segera setelah retype atau promosi. Field-nya dilayani dari JSON sampai backfill-nya mendarat.",
+        "Pencarian teks penuh, fuzzy, atau substring. Driver default menyediakan kecocokan eksak, perbandingan, rentang, keanggotaan set, dan anchored prefix — tidak ada yang lain.",
+        "Nomor halaman, lompat-ke-halaman, atau jumlah hasil total. Pembacaan dipaginasi kursor dan forward-sequential, dengan sengaja."
+      ]
+    }
+  }
+}

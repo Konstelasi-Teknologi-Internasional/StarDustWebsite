@@ -1,0 +1,15 @@
+{
+  "home": {
+    "title": "StarDust — field dinamis dengan kecepatan indeks SQL asli",
+    "description": "Field dinamis tanpa skema, diquery dengan kecepatan indeks SQL asli — tidak ada cluster pencarian terpisah, tidak ada rawa join EAV. Engine PHP netral terhadap framework untuk MySQL 8."
+  },
+  "playground": {
+    "title": "Playground | StarDust",
+    "description": "Playground interaktif untuk StarDust — jelajahi field dinamis, siklus hidup field, dan pencerminan database dengan simulasi langsung."
+  },
+  "jsonLd": {
+    "operatingSystem": "Cross-platform (MySQL 8.0.13+, PHP 8.1+)",
+    "applicationCategory": "DeveloperApplication",
+    "softwareRequirements": "PHP 8.1+, MySQL 8.0.13+"
+  }
+}

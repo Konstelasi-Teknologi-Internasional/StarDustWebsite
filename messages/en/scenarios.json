@@ -1,0 +1,42 @@
+{
+  "scenarios": {
+    "promotionWindow": {
+      "title": "The promotion window",
+      "blurb": "A field marked filterable with the Watcher stopped, and 600 rows waiting behind it.",
+      "parked": "600 rows written · city is filterable but holds no slot · the Watcher is stopped · a filter on city is refused at pre-flight. The Reconciler has already tried once and logged capacity_wait, which is why nothing is moving.",
+      "nextStep": "Start the Watcher, then press run. The next tick provisions the page, reserves the slot and drains the first 500 rows; two ticks later the last 100 land and the slot flips to ready.",
+      "nextStepReduced": "Start the Watcher, then press step. The next tick provisions the page, reserves the slot and drains the first 500 rows; two steps later the last 100 land and the slot flips to ready.",
+      "anchorLabel": "the daemon control room",
+      "stages": {
+        "refused": "a filter on city is refused at pre-flight",
+        "provision": "starting the Watcher provisions, reserves and drains one chunk",
+        "ready": "two more ticks finish it and the slot flips to ready",
+        "answered": "the identical filter now returns its row"
+      }
+    },
+    "warmPath": {
+      "title": "The warm path",
+      "blurb": "A swept column goes back in the pool, and is the one the next promotion takes.",
+      "parked": "city was promoted, backfilled and then demoted · the Liberator has swept its slot back to free · i_str_01 is free, still indexed, and carries no residue · country is not filterable yet. The page also holds i_str_02–i_str_04, indexed since it was provisioned and never claimed by anything: that is the headroom, and it is why a second promotion is warm even without a demotion. What only a full round trip produces is a column that has been used and handed back.",
+      "nextStep": "Promote country in the daemon control room. It reserves inside the promoting transaction with no Watcher tick in between — and it takes i_str_01, the recycled column, rather than untouched headroom, because the reserver walks the free list oldest first. Then press run to drain the backfill.",
+      "nextStepReduced": "Promote country in the daemon control room. It reserves inside the promoting transaction with no Watcher tick in between — and it takes i_str_01, the recycled column, rather than untouched headroom, because the reserver walks the free list oldest first. Then press step to drain the backfill.",
+      "anchorLabel": "the daemon control room",
+      "stages": {
+        "recycled": "promoting country takes the recycled column, not untouched headroom"
+      }
+    },
+    "halfMigrated": {
+      "title": "The half-migrated world",
+      "blurb": "A field renamed under 600 rows, with the Reconciler stopped in the middle of the rewrite.",
+      "parked": "city was renamed to locality · the registry already says locality · 500 payloads have been rewritten and 100 are still stored under city · stardust_fields.previous_name holds the old name · the Reconciler is stopped. No page and no slot exist, because a rename touches neither.",
+      "nextStep": "Run a read in the query builder. Every row comes back on locality — including the hundred still stored as city, which the read resolves through the fallback. Then resume the Reconciler and press run to finish the rewrite.",
+      "nextStepReduced": "Run a read in the query builder. Every row comes back on locality — including the hundred still stored as city, which the read resolves through the fallback. Then resume the Reconciler and press step to finish the rewrite.",
+      "anchorLabel": "the query builder",
+      "stages": {
+        "bridged": "a read across the window returns every row on the new name",
+        "unknown": "a filter on the old name is refused, and not bridged",
+        "landed": "resuming the Reconciler rewrites the last hundred and retires the bridge"
+      }
+    }
+  }
+}

@@ -1,0 +1,73 @@
+{
+  "pageProvisioned": {
+    "headline": "Page {pageId} sekarang ada",
+    "detail": "{tableName} — {columnCount} kolom slot, semuanya diindeks: {shape}."
+  },
+  "slotReserved": {
+    "headline": "{fieldName} mengambil kolom {column}",
+    "detail": "Reserver memilihnya — Anda tidak, dan tidak bisa. Ini adalah {status}{pageInfo}."
+  },
+  "fieldIndexed": {
+    "headline": "{fieldName} diindeks",
+    "detail": "Backfill selesai dan slot bergerak ke siap. Filter yang baru saja ditolak sekarang mengembalikan baris."
+  },
+  "retypeStarted": {
+    "headlineDemote": "{fieldName} tidak lagi dapat difilter",
+    "detailDemote": "Kolomnya di-tombstone. Sisanya tetap di sana sampai Liberator menyapu, dan hanya kemudian dapat dipesan lagi.",
+    "headlineWaiting": "{fieldName} menunggu kapasitas",
+    "detailWaiting": "Ditandai dapat difilter tanpa slot di belakangnya — tidak ada yang tersedia. Watcher harus menyediakan page sebelum backfill dapat dimulai.",
+    "headlineIndexing": "{fieldName} sedang diindeks",
+    "detailIndexing": "Slot dipesan dan sedang backfilling. Filter di atasnya ditolak untuk seluruh jendela itu — dan itulah intinya."
+  },
+  "exhaustionFallback": {
+    "headline": "Penulisan melampaui indeksnya",
+    "detail": "Entry {entryId} disimpan sepenuhnya — payload adalah sistem catatan sumber. Ini diantrekan untuk slot yang akan dipesan Reconciler."
+  },
+  "dlqInserted": {
+    "headline": "Entry {entryId} dikurung",
+    "detail": "{reason} — disimpan di DLQ, bukan dibuang, dan dapat diputar ulang."
+  },
+  "preFlightRejected": {
+    "headline": "Filter itu ditolak",
+    "detail": "{reason}"
+  },
+  "rejectionReasons": {
+    "fieldUnknown": "Tidak ada field bernama {fieldName} pada model ini.",
+    "fieldNotFilterableBuilding": "{fieldName} sedang di-backfill tengah jalan. Indeks yang setengah terbangun ditolak, bukan dipakai untuk menjawab — itulah mengapa ini error, bukan hasil kosong.",
+    "fieldNotFilterableNoSlot": "{fieldName} tidak memiliki slot di belakangnya. Registry mungkin saja mengatakan field ini dapat difilter — tapi itu hanya niat, dan filter memerlukan indeks.",
+    "valueTypeMismatch": "Nilai yang diberikan untuk {fieldName} adalah tipe yang salah untuk tipe yang dideklarasikannya.",
+    "valueOutOfBounds": "Nilai yang diberikan untuk {fieldName} berada di luar batas yang diizinkan wire format.",
+    "sortFieldUnknown": "Anda tidak dapat mengurutkan berdasarkan {fieldName} — tidak ada field seperti itu pada model ini.",
+    "sortFieldNotSortable": "{fieldName} tidak memiliki slot aktif, jadi tidak ada indeks untuk mengurutkannya.",
+    "cursorSortMismatch": "Kursor dicetak untuk pengurutan yang berbeda. Menyusurinya sekarang akan diam-diam mengikuti urutan yang lain.",
+    "unknown": "Pre-flight menolaknya: {reason}."
+  },
+  "renameStarted": {
+    "headline": "{oldName} sekarang {newName}",
+    "detail": "Registry berubah instan; setiap payload yang disimpan masih ada di kunci lama. Pembacaan menjembatani kesenjangan, filter di {oldName} tidak."
+  },
+  "renameComplete": {
+    "headline": "Setiap baris sekarang di {newName}",
+    "detail": "Backfill selesai dan previous_name null lagi. Fallback pembacaan pensiun — tidak ada yang membutuhkannya, karena tidak ada yang tertinggal."
+  },
+  "fieldSevered": {
+    "headline": "{fieldName} hilang dari setiap pembacaan",
+    "detail": "Pemutusan instan dan total — pembacaan, filter, ekspor dan describeModel() semua berhenti melihatnya. Nilainya masih tersimpan di entry_data sampai pembersihan mencapainya."
+  },
+  "fieldPurged": {
+    "headline": "{fieldName} sepenuhnya dibersihkan",
+    "detail": "Chunk terakhir menghapus kunci dari setiap payload dan menjatuhkan baris registry dengannya. Nama dapat digunakan kembali — sebelumnya tidak, selama baris itu masih memegangnya."
+  },
+  "modelSevered": {
+    "headline": "{modelName} telah menjadi gelap",
+    "detail": "Diputus bersama dengan semua {fieldCount} field-nya. Pembacaan tidak mengembalikan apa pun — bukan error, tidak ada apa pun, persis seperti model yang tidak pernah ada — dan penulisan ditolak, bukan sekadar dipangkas."
+  },
+  "modelPurged": {
+    "headline": "Model {modelId} dan baris-baris-nya hilang",
+    "detail": "Pembersihan menghapus entry itu sendiri, bukan hanya kunci, dan chunk terakhir menjatuhkan baris model. Tidak ada yang menahannya."
+  },
+  "columnReclaimed": {
+    "headline": "Kolom yang dihapus sudah jelas",
+    "detail": "Slot {slotId} dihapus ke akhir page. Kolom tidak memiliki sisa dan bebas untuk reservasi berikutnya."
+  }
+}

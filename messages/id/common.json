@@ -1,0 +1,39 @@
+{
+  "nav": {
+    "skipContent": "Langsung ke konten",
+    "openMenu": "Buka menu",
+    "closeMenu": "Tutup menu",
+    "links": {
+      "howItWorks": "Cara kerja",
+      "vsEav": "vs. EAV",
+      "fieldLifecycle": "Siklus hidup field",
+      "daemons": "Daemon",
+      "playground": "Playground",
+      "getStarted": "Memulai"
+    }
+  },
+  "footer": {
+    "tagline": "Field dinamis tanpa skema, diquery dengan kecepatan indeks SQL asli.",
+    "description": "MySQL-native Vertical Schema Partitioning untuk model data dinamis. Framework-netral, lisensi MIT.",
+    "copyright": "© {year} Konstelasi Teknologi Internasional",
+    "columns": {
+      "project": "Proyek",
+      "getIt": "Dapatkan"
+    },
+    "links": {
+      "source": "Kode sumber",
+      "documentation": "Dokumentasi",
+      "examples": "Contoh",
+      "changelog": "Changelog",
+      "packagist": "Packagist",
+      "contributing": "Berkontribusi",
+      "issues": "Issues",
+      "siteSource": "Kode sumber situs ini"
+    }
+  },
+  "languageSwitch": {
+    "label": "Bahasa",
+    "english": "English",
+    "indonesian": "Indonesian"
+  }
+}

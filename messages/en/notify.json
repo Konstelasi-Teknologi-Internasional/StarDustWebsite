@@ -1,0 +1,73 @@
+{
+  "pageProvisioned": {
+    "headline": "Page {pageId} exists now",
+    "detail": "{tableName} — {columnCount} slot columns, every one indexed: {shape}."
+  },
+  "slotReserved": {
+    "headline": "{fieldName} took column {column}",
+    "detail": "The reserver picked it — you did not, and could not. It is {status}{pageInfo}."
+  },
+  "fieldIndexed": {
+    "headline": "{fieldName} is indexed",
+    "detail": "The backfill finished and the slot flipped to ready. The filter that was refused a moment ago now returns rows."
+  },
+  "retypeStarted": {
+    "headlineDemote": "{fieldName} is no longer filterable",
+    "detailDemote": "Its column is tombstoned. The residue stays there until the Liberator sweeps it, and only then can it be reserved again.",
+    "headlineWaiting": "{fieldName} is waiting on capacity",
+    "detailWaiting": "It is marked filterable with no slot behind it — nothing was free. The Watcher has to provision a page before the backfill can start.",
+    "headlineIndexing": "{fieldName} is being indexed",
+    "detailIndexing": "A slot is reserved and backfilling. Filters on it are refused for the whole of that window, which is the point of it."
+  },
+  "exhaustionFallback": {
+    "headline": "A write outran its index",
+    "detail": "Entry {entryId} is stored in full — the payload is the system of record. It is queued for a slot the Reconciler will reserve."
+  },
+  "dlqInserted": {
+    "headline": "Entry {entryId} was quarantined",
+    "detail": "{reason} — kept in the DLQ rather than dropped, and replayable."
+  },
+  "preFlightRejected": {
+    "headline": "That filter was refused",
+    "detail": "{reason}"
+  },
+  "rejectionReasons": {
+    "fieldUnknown": "There is no field called {fieldName} on this model.",
+    "fieldNotFilterableBuilding": "{fieldName} is mid-backfill. A half-built index is refused rather than answered from, which is why this is an error and not an empty result.",
+    "fieldNotFilterableNoSlot": "{fieldName} has no slot behind it. The registry may well say it is filterable — that is intent, and a filter needs an index.",
+    "valueTypeMismatch": "The value given for {fieldName} is the wrong type for its declared type.",
+    "valueOutOfBounds": "The value given for {fieldName} is outside the bounds the wire format allows.",
+    "sortFieldUnknown": "You cannot sort by {fieldName} — there is no such field on this model.",
+    "sortFieldNotSortable": "{fieldName} has no live slot, so there is no index to sort it by.",
+    "cursorSortMismatch": "The cursor was minted under a different ordering. Walking it now would silently page through a different sequence.",
+    "unknown": "Pre-flight refused it: {reason}."
+  },
+  "renameStarted": {
+    "headline": "{oldName} is now {newName}",
+    "detail": "The registry changed instantly; every stored payload is still on the old key. Reads bridge the gap, filters on {oldName} do not."
+  },
+  "renameComplete": {
+    "headline": "Every row is on {newName} now",
+    "detail": "The backfill finished and previous_name is null again. The read fallback is retired — nothing needs it, because nothing is behind."
+  },
+  "fieldSevered": {
+    "headline": "{fieldName} is gone from every read",
+    "detail": "Severance is instant and total — reads, filters, exports and describeModel() all stop seeing it. Its values are still sitting in entry_data until the purge reaches them."
+  },
+  "fieldPurged": {
+    "headline": "{fieldName} is fully purged",
+    "detail": "The last chunk removed the key from every payload and dropped the registry row with it. The name is reusable again — it was not, while the row still held it."
+  },
+  "modelSevered": {
+    "headline": "{modelName} has gone dark",
+    "detail": "Severed along with all {fieldCount} of its fields. Reads return nothing — not an error, nothing, exactly as for a model that never existed — and writes are refused rather than stripped."
+  },
+  "modelPurged": {
+    "headline": "Model {modelId} and its rows are gone",
+    "detail": "The purge deleted the entries themselves, not just keys, and the final chunk dropped the model row. Nothing retains them."
+  },
+  "columnReclaimed": {
+    "headline": "A tombstoned column is clear",
+    "detail": "Slot {slotId} swept to the end of the page. The column holds no residue and is free for the next reservation."
+  }
+}

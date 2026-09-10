@@ -1,0 +1,15 @@
+{
+  "home": {
+    "title": "StarDust — dynamic fields at native SQL index speed",
+    "description": "Schemaless dynamic fields, queried at native SQL index speed — no separate search cluster, no EAV join swamp. A framework-neutral PHP engine for MySQL 8."
+  },
+  "playground": {
+    "title": "Playground | StarDust",
+    "description": "Interactive playground for StarDust — explore dynamic fields, field lifecycles, and database mirroring with live simulation."
+  },
+  "jsonLd": {
+    "operatingSystem": "Cross-platform (MySQL 8.0.13+, PHP 8.1+)",
+    "applicationCategory": "DeveloperApplication",
+    "softwareRequirements": "PHP 8.1+, MySQL 8.0.13+"
+  }
+}
