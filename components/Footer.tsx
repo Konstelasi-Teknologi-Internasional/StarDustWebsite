@@ -1,3 +1,5 @@
+'use client';
+
 import {
   CHANGELOG,
   CONTRIBUTING,
@@ -8,39 +10,40 @@ import {
   REPO,
   SITE_REPO,
 } from '@/lib/links';
+import { useTranslations } from '@/lib/i18n';
 import BrandMark from './BrandMark';
 import styles from './Footer.module.css';
 
-const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [
-  {
-    heading: 'Project',
-    links: [
-      { href: REPO, label: 'Source' },
-      { href: DOCS, label: 'Documentation' },
-      { href: EXAMPLES, label: 'Examples' },
-      { href: CHANGELOG, label: 'Changelog' },
-    ],
-  },
-  {
-    heading: 'Get it',
-    links: [
-      { href: PACKAGIST, label: 'Packagist' },
-      { href: CONTRIBUTING, label: 'Contributing' },
-      { href: ISSUES, label: 'Issues' },
-      { href: SITE_REPO, label: 'Source of this site' },
-    ],
-  },
-];
-
 export default function Footer() {
+  const t = useTranslations('common');
+
+  const COLUMNS: { heading: string; links: { href: string; label: string }[] }[] = [
+    {
+      heading: t('footer.columns.project'),
+      links: [
+        { href: REPO, label: t('footer.links.source') },
+        { href: DOCS, label: t('footer.links.documentation') },
+        { href: EXAMPLES, label: t('footer.links.examples') },
+        { href: CHANGELOG, label: t('footer.links.changelog') },
+      ],
+    },
+    {
+      heading: t('footer.columns.getIt'),
+      links: [
+        { href: PACKAGIST, label: t('footer.links.packagist') },
+        { href: CONTRIBUTING, label: t('footer.links.contributing') },
+        { href: ISSUES, label: t('footer.links.issues') },
+        { href: SITE_REPO, label: t('footer.links.siteSource') },
+      ],
+    },
+  ];
+
   return (
     <footer className={styles.footer}>
       {/* PLACEMENT 3 — quiet closing signature. Remove this block alone to cut it. */}
       <div className={`shell ${styles.signature}`}>
         <BrandMark size={96} className={styles.signatureMark} />
-        <p className={styles.tagline}>
-          Schemaless dynamic fields, queried at native SQL index speed.
-        </p>
+        <p className={styles.tagline}>{t('footer.tagline')}</p>
       </div>
 
       <div className={`shell ${styles.inner}`}>
@@ -49,10 +52,7 @@ export default function Footer() {
             <BrandMark size={18} />
             StarDust
           </span>
-          <p className={styles.tag}>
-            MySQL-native Vertical Schema Partitioning for dynamic data models.
-            Framework-neutral, MIT licensed.
-          </p>
+          <p className={styles.tag}>{t('footer.description')}</p>
         </div>
 
         <nav className={styles.links}>
@@ -70,7 +70,7 @@ export default function Footer() {
       </div>
 
       <div className={`shell ${styles.legal}`}>
-        <span>© {new Date().getFullYear()} Konstelasi Teknologi Internasional</span>
+        <span>{t('footer.copyright', { year: new Date().getFullYear() })}</span>
         <span>MIT</span>
       </div>
     </footer>

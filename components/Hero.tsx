@@ -5,6 +5,7 @@ import CodeBlock from './CodeBlock';
 import BrandMark from './BrandMark';
 import Starfield from './Starfield';
 import { REPO } from '@/lib/links';
+import { useLocale, useTranslations, withLocale } from '@/lib/i18n';
 import styles from './Hero.module.css';
 
 const SNIPPET = `// "industry" and "employees" are user-defined fields, not table
@@ -22,6 +23,8 @@ $page = $engine->read(new EntryQuery(
 const INSTALL = 'composer require damarbob/stardust';
 
 export default function Hero() {
+  const locale = useLocale();
+  const t = useTranslations('landing');
   const [copied, setCopied] = useState(false);
 
   const copyInstall = async () => {
@@ -46,39 +49,35 @@ export default function Hero() {
 
         <a className={styles.badge} href="#status">
           <span className="dot" style={{ color: 'var(--pending)' }} />
-          v0.3.0 pre-release · Vertical Schema Partitioning
+          {t('hero.badge')}
         </a>
 
         <h1 className={styles.title}>
-          Schemaless dynamic fields,
+          {t('hero.titleLine1')}
           <br />
-          <span className={styles.grad}>queried at native SQL index speed.</span>
+          <span className={styles.grad}>{t('hero.titleLine2')}</span>
         </h1>
 
-        <p className={styles.lede}>
-          Give every tenant their own fields, then filter them like first-class columns.
-          No separate search cluster. No EAV join swamp. Just MySQL 8, doing an index
-          scan on data you never declared at migration time.
-        </p>
+        <p className={styles.lede}>{t('hero.lede')}</p>
 
         <div className={styles.ctas}>
           <button type="button" className={styles.install} onClick={copyInstall}>
             <span className={styles.prompt}>$</span>
             <code>{INSTALL}</code>
-            <span className={styles.copyHint}>{copied ? 'copied' : 'copy'}</span>
+            <span className={styles.copyHint}>{copied ? t('hero.copied') : t('hero.copy')}</span>
           </button>
 
           <a className="btn" href={REPO} target="_blank" rel="noreferrer">
-            Read the source
+            {t('hero.readSource')}
           </a>
         </div>
 
         <div className={styles.code}>
-          <CodeBlock code={SNIPPET} lang="php" title="filtering a user-defined field" />
+          <CodeBlock code={SNIPPET} lang="php" title={t('hero.codeTitle')} />
         </div>
 
-        <a className={styles.scroll} href="#mirror">
-          <span>See what happens underneath</span>
+        <a className={styles.scroll} href={withLocale(locale, '/#mirror')}>
+          <span>{t('hero.scroll')}</span>
           <span className={styles.arrow} aria-hidden="true">
             ↓
           </span>
