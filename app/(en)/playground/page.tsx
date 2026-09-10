@@ -1,5 +1,8 @@
 import type { Metadata } from 'next';
 import Playground from '@/components/playground/Playground';
+import { loadMessages, type Locale, LocaleProvider } from '@/lib/i18n';
+
+const locale: Locale = 'en';
 
 /**
  * This file stays a server component purely so it can export `metadata` — Next
@@ -19,7 +22,13 @@ const description =
 export const metadata: Metadata = {
   title,
   description,
-  alternates: { canonical: '/playground/' },
+  alternates: {
+    canonical: '/playground/',
+    languages: {
+      en: '/playground/',
+      id: '/id/playground/',
+    },
+  },
   openGraph: {
     title,
     description,
@@ -44,6 +53,12 @@ export const metadata: Metadata = {
   },
 };
 
-export default function PlaygroundPage() {
-  return <Playground />;
+export default async function PlaygroundPage() {
+  const messages = await loadMessages(locale);
+
+  return (
+    <LocaleProvider locale={locale} messages={messages}>
+      <Playground />
+    </LocaleProvider>
+  );
 }

@@ -1,12 +1,14 @@
 import type { Metadata, Viewport } from 'next';
 import { Poppins } from 'next/font/google';
 import { SITE_URL, REPO } from '@/lib/links';
-import './globals.css';
+import { loadMessages, type Locale, LocaleProvider } from '@/lib/i18n';
+import '../globals.css';
 
-// Konstelasi's brand typeface — every text role in their Elementor kit is
-// set to Poppins. Weights cover the 500–660 cluster this codebase's own
-// font-weight declarations use (nearest-available matching handles the
-// odd values like 560/620/660); the mono stack is untouched.
+const locale: Locale = 'id';
+
+// Mirrors app/(en)/layout.tsx exactly — each locale root layout loads its
+// own copy since Next.js requires font loaders to run in the file that
+// renders the <html> tag they apply to.
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['400', '500', '600'],
@@ -15,10 +17,10 @@ const poppins = Poppins({
 });
 
 const description =
-  'Schemaless dynamic fields, queried at native SQL index speed — no separate ' +
-  'search cluster, no EAV join swamp. A framework-neutral PHP engine for MySQL 8.';
+  'Field dinamis tanpa skema, diquery dengan kecepatan indeks SQL asli — tidak ada cluster ' +
+  'pencarian terpisah, tidak ada rawa join EAV. Engine PHP netral terhadap framework untuk MySQL 8.';
 
-const title = 'StarDust — dynamic fields at native SQL index speed';
+const title = 'StarDust — field dinamis dengan kecepatan indeks SQL asli';
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -32,13 +34,13 @@ export const metadata: Metadata = {
   keywords: [
     'MySQL',
     'PHP',
-    'dynamic fields',
-    'EAV alternative',
+    'field dinamis',
+    'alternatif EAV',
     'multi-tenant',
     'vertical schema partitioning',
-    'schemaless',
-    'indexed JSON',
-    'database engine',
+    'tanpa skema',
+    'JSON terindeks',
+    'mesin database',
   ],
   authors: [{ name: 'Konstelasi Teknologi Internasional', url: 'https://konstelasi.co.id' }],
   creator: 'Konstelasi Teknologi Internasional',
@@ -54,14 +56,20 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  alternates: { canonical: '/' },
+  alternates: {
+    canonical: '/id/',
+    languages: {
+      en: '/',
+      id: '/id/',
+    },
+  },
   openGraph: {
     title,
     description,
     type: 'website',
-    url: '/',
+    url: '/id/',
     siteName: 'StarDust',
-    locale: 'en_US',
+    locale: 'id_ID',
     images: [
       {
         url: '/icon.svg',
@@ -73,7 +81,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'StarDust — dynamic fields at native SQL index speed',
+    title,
     description,
     images: ['/icon.svg'],
   },
@@ -91,7 +99,7 @@ const jsonLd = {
   operatingSystem: 'Cross-platform (MySQL 8.0.13+, PHP 8.1+)',
   applicationCategory: 'DeveloperApplication',
   description,
-  url: SITE_URL,
+  url: `${SITE_URL}/id/`,
   author: {
     '@type': 'Organization',
     name: 'Konstelasi Teknologi Internasional',
@@ -103,24 +111,22 @@ const jsonLd = {
   license: 'https://opensource.org/licenses/MIT',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function IdLayout({ children }: { children: React.ReactNode }) {
+  const messages = await loadMessages(locale);
+
   return (
-    <html lang="en" className={poppins.variable}>
+    <html lang="id" className={poppins.variable}>
       <head>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
       </head>
-      {/*
-        Extensions inject attributes onto <body> before React hydrates —
-        Grammarly's `data-gr-ext-installed`, ClickUp's class — which React
-        reports as a hydration mismatch against server HTML that cannot
-        possibly have carried them. Suppression is one level deep, so this
-        covers the attributes without hiding a real mismatch in `children`.
-      */}
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <LocaleProvider locale={locale} messages={messages}>
+          {children}
+        </LocaleProvider>
+      </body>
     </html>
   );
 }
-
