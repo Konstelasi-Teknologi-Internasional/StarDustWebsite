@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import type { EventSource, SimEvent } from '@/lib/sim/events';
 import { EVENT_LOG_LIMIT } from '@/lib/sim/world';
 import styles from './EventLog.module.css';
@@ -54,13 +55,14 @@ type Props = {
 export default function EventLog({
   events,
   sources,
-  title = 'event stream',
-  note = 'NDJSON · one line per event',
+  title,
+  note,
   limit = EVENT_LOG_LIMIT,
   empty,
   height,
 }: Props) {
   const logRef = useRef<HTMLDivElement | null>(null);
+  const t = useTranslations('playground');
 
   const lines = useMemo(() => {
     const filtered =
@@ -78,8 +80,8 @@ export default function EventLog({
   return (
     <div className={`panel ${styles.panel}`}>
       <div className="panel-head">
-        <span>{title}</span>
-        <span className="tag tag-json">{note}</span>
+        <span>{title ?? t('eventLog.title')}</span>
+        <span className="tag tag-json">{note ?? t('eventLog.note')}</span>
       </div>
 
       {lines.length === 0 ? (
@@ -94,15 +96,14 @@ export default function EventLog({
             push a whole poll cycle out of the retained window. */}
         {lines.length >= EVENT_LOG_LIMIT && (
           <p className={styles.truncated}>
-            the world retains the last {EVENT_LOG_LIMIT} lines — older ones have
-            scrolled off, not been suppressed
+            {t('eventLog.truncated', { limit: EVENT_LOG_LIMIT })}
           </p>
         )}
         <div
           className={styles.log}
           ref={logRef}
           role="region"
-          aria-label="Simulated engine event stream"
+          aria-label={t('eventLog.regionLabel')}
           tabIndex={0}
           style={height === undefined ? undefined : { height }}
         >

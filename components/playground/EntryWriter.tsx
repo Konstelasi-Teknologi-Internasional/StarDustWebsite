@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import CodeBlock from '@/components/CodeBlock';
+import { useLocale, useTranslations } from '@/lib/i18n';
 import { clearFlights, fly, type FlyOptions } from '@/lib/fly';
 import { defaultPageColumns } from '@/lib/sim/capacity';
 import { pageDdl, TABLE_DDL } from '@/lib/sim/ddl';
@@ -78,6 +79,7 @@ export default function EntryWriter() {
   const { world, dispatch } = usePlayground();
   const reduced = useReducedMotion();
   const draft = world.payloadDraft;
+  const t = useTranslations('playground');
 
   const [phase, setPhase] = useState<Phase>('idle');
 
@@ -149,7 +151,7 @@ export default function EntryWriter() {
       const row = nodes.current.get(NODE.lastRow);
       if (src && row) {
         await fly(layer, src, row, {
-          label: 'fields (JSON)',
+          label: t('entryWriter.fields'),
           tone: 'accent',
           duration: 560,
         });
@@ -182,6 +184,11 @@ export default function EntryWriter() {
       played.current = null;
       clearFlights(layer);
     };
+    // `t` is deliberately not a dependency — see `useNarration`'s comment on
+    // the same point: `useTranslations` hands back a new function every
+    // render, and the locale it is bound to never changes for the life of
+    // this component.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastWrite, reduced]);
 
   /* ---------------- the payload → flight mapping ---------------- */
@@ -203,7 +210,7 @@ export default function EntryWriter() {
         name,
         target: NODE.wall as string,
         opts: {
-          label: `${name} — queued for backfill`,
+          label: t('entryWriter.status.queued', { name }),
           tone: 'pending',
           duration: 720,
           stopAt: 0.45,
@@ -213,7 +220,7 @@ export default function EntryWriter() {
         name,
         target: NODE.wall as string,
         opts: {
-          label: `${name} — JSON only`,
+          label: t('entryWriter.flightJsonOnly', { name }),
           tone: 'json',
           duration: 720,
           stopAt: 0.45,
@@ -223,7 +230,7 @@ export default function EntryWriter() {
         name,
         target: NODE.wall as string,
         opts: {
-          label: `${name} — unknown key, stored verbatim`,
+          label: t('entryWriter.flightUnknownKey', { name }),
           tone: 'json',
           duration: 720,
           stopAt: 0.45,
@@ -295,27 +302,26 @@ export default function EntryWriter() {
 
   return (
     <section className={styles.section} id="write" aria-labelledby="write-title" tabIndex={-1}>
-      <p className="eyebrow">section c</p>
+      <p className="eyebrow">{t('entryWriter.eyebrow')}</p>
       <h2 id="write-title" className={styles.title}>
-        Write entries
+        {t('entryWriter.title')}
       </h2>
       <p className="section-lede">
-        The payload lands in <code>entry_data</code> in full, first, whatever the index
-        situation is. Mirroring a value out into a typed slot column is a separate step,
-        and when it cannot happen the entry is queued rather than refused — which is why
-        every ghost below stops short of the wall. Nothing has provisioned a page yet.
+        {t('entryWriter.lede1')}
+        <code>entry_data</code>
+        {t('entryWriter.lede2')}
       </p>
 
       {models.length === 0 ? (
         <div className={`panel ${styles.blocked}`}>
           <div className="panel-head">
-            <span>no models</span>
-            <span className="tag tag-json">nothing to write into</span>
+            <span>{t('entryWriter.blockedTitle')}</span>
+            <span className="tag tag-json">{t('entryWriter.blockedTag')}</span>
           </div>
           <p>
-            An entry belongs to a model, so there is nothing to compose until one exists.
-            Define one in <a href="#define">section A</a> and this form builds itself from
-            the fields you gave it.
+            {t('entryWriter.blockedBody1')}
+            <a href="#define">{t('entryWriter.blockedLink')}</a>
+            {t('entryWriter.blockedBody2')}
           </p>
         </div>
       ) : (
@@ -324,10 +330,10 @@ export default function EntryWriter() {
             {/* ---- the payload ---- */}
             <div className={`panel ${styles.formPanel}`}>
               <div className="panel-head">
-                <span>payload</span>
+                <span>{t('entryWriter.payloadTitle')}</span>
                 <span className={styles.headRight}>
                   <label className={styles.modelLabel} htmlFor="write-model">
-                    model
+                    {t('entryWriter.modelSelectLabel')}
                   </label>
                   <select
                     id="write-model"
@@ -341,7 +347,7 @@ export default function EntryWriter() {
                     }
                   >
                     <option value="" disabled>
-                      pick one
+                      {t('entryWriter.pickOne')}
                     </option>
                     {models.map(m => (
                       <option key={m.id} value={m.id}>
@@ -355,14 +361,12 @@ export default function EntryWriter() {
               <div className={styles.formBody} ref={setNode(NODE.payload)}>
                 {draft.modelId === null ? (
                   <p className={styles.hint}>
-                    Pick a model and its fields appear here, in registry order — which is
-                    id order, because <code>stardust_fields</code> has no sort column.
+                    {t('entryWriter.hintPickModel1')}
+                    <code>stardust_fields</code>
+                    {t('entryWriter.hintPickModel2')}
                   </p>
                 ) : rows.length === 0 ? (
-                  <p className={styles.hint}>
-                    This model has no fields. That is legal: every key you add below will
-                    be an unknown key, and unknown keys are stored verbatim.
-                  </p>
+                  <p className={styles.hint}>{t('entryWriter.hintNoFields')}</p>
                 ) : null}
 
                 {rows.map(field => (
@@ -390,7 +394,7 @@ export default function EntryWriter() {
                     className={styles.addKey}
                     onClick={() => dispatch({ type: 'payload/addUnknownKey' })}
                   >
-                    + add a key this model does not have
+                    {t('entryWriter.addKeyButton')}
                   </button>
                 )}
               </div>
@@ -410,10 +414,13 @@ export default function EntryWriter() {
                   disabled={draft.modelId === null}
                   onClick={() => dispatch({ type: 'payload/reset' })}
                 >
-                  clear
+                  {t('entryWriter.clearButton')}
                 </button>
               </div>
 
+              {/* Simulates the message a real EntryWriteException would carry —
+                  left untranslated in both locales on the same fidelity rule
+                  as `ModelBuilder`'s `draft.error`. */}
               {draft.error !== null && (
                 <p className={styles.error} role="status">
                   {draft.error}
@@ -423,22 +430,21 @@ export default function EntryWriter() {
 
             {/* ---- what the gestures are ---- */}
             <div className={styles.side}>
-              <CodeBlock code={snippet} lang="php" title="the call this is" copyable />
+              <CodeBlock code={snippet} lang="php" title={t('entryWriter.sideCodeTitle')} copyable />
               <aside className={styles.aside}>
-                <h3>Coercion touches the slot, not the payload</h3>
+                <h3>{t('entryWriter.asideHeading')}</h3>
                 <p>
-                  The chip beside a value is a preview of what a slot column{' '}
-                  <em>would</em> hold. <code>entry_data.fields</code> stores what you
-                  actually sent — so an <code>int</code> field given the text{' '}
-                  <code>&quot;42&quot;</code> keeps the string in JSON and would put the
-                  integer in the slot. The two are allowed to disagree, and the JSON is
-                  the one that is the system of record.
+                  {t('entryWriter.asideBody1P1')}
+                  <em>{t('entryWriter.asideBody1Would')}</em>
+                  {t('entryWriter.asideBody1P2')}
+                  <code>entry_data.fields</code>
+                  {t('entryWriter.asideBody1P3')}
+                  <code>int</code>
+                  {t('entryWriter.asideBody1P4')}
+                  <code>&quot;42&quot;</code>
+                  {t('entryWriter.asideBody1P5')}
                 </p>
-                <p>
-                  Nothing is coerced yet, because no slot exists to coerce for. The
-                  preview is here so the rule is visible before the daemons make it
-                  load-bearing.
-                </p>
+                <p>{t('entryWriter.asideBody2')}</p>
               </aside>
             </div>
           </div>
@@ -450,17 +456,20 @@ export default function EntryWriter() {
           <div className={styles.mirror}>
             <TableView<SimEntry>
               name="entry_data"
-              note="system of record · always complete"
+              note={t('entryWriter.mirrorNote')}
               about={
                 <>
-                  Every write lands here in full, before anything else is attempted. The{' '}
-                  <code>fields</code> JSON is keyed by field <strong>name</strong>, and
-                  holds unknown keys and non-filterable fields exactly as they were sent.{' '}
-                  <strong>Delete is soft</strong> — it stamps <code>deleted_at</code> and
-                  stops, keeping any slot values, because nothing can reach them without
-                  joining through a live row. Pressing it twice is not an error: the
-                  second call returns <code>false</code> and logs nothing, where an update
-                  to the same row would throw.
+                  {t('entryWriter.mirrorAbout1')}
+                  <code>fields</code>
+                  {t('entryWriter.mirrorAbout2')}
+                  <strong>name</strong>
+                  {t('entryWriter.mirrorAbout3')}
+                  <strong>{t('entryWriter.mirrorAboutDeleteSoft')}</strong>
+                  {t('entryWriter.mirrorAbout4')}
+                  <code>deleted_at</code>
+                  {t('entryWriter.mirrorAbout5')}
+                  <code>false</code>
+                  {t('entryWriter.mirrorAbout6')}
                 </>
               }
               rows={entryRows}
@@ -480,7 +489,7 @@ export default function EntryWriter() {
                 }
                 return undefined;
               }}
-              empty="No entries yet. Compose a payload above and press write() — it will land here whether or not any field is indexed."
+              empty={t('entryWriter.mirrorEmpty')}
             />
 
             {/* A no-op delete has no visual event of its own — the row does not
@@ -490,42 +499,40 @@ export default function EntryWriter() {
             <p className={styles.deleteNote} role="status" aria-live="polite">
               {draft.lastDelete === null
                 ? ''
-                : draft.lastDelete.deleted
-                  ? `deleteEntry(${world.tenantId}, ${draft.lastDelete.entryId}) returned true — deleted_at is stamped, the slot values are kept, and one entry_deleted line was logged.`
-                  : `deleteEntry(${world.tenantId}, ${draft.lastDelete.entryId}) returned false. Nothing transitioned, nothing was logged, and the original timestamp is untouched — a repeat delete has already achieved what you asked for. An update to the same row would have thrown instead.`}
+                : t(draft.lastDelete.deleted ? 'entryWriter.deleteTrue' : 'entryWriter.deleteFalse', {
+                    tenantId: world.tenantId,
+                    entryId: draft.lastDelete.entryId,
+                  })}
             </p>
 
             {/* The wall. Not a divider with a caption: the thing the ghosts
                 stop at is the panel below saying the table does not exist. */}
             <div className={styles.wall} ref={setNode(NODE.wall)} aria-hidden="true">
               <span className={styles.wallLine} />
-              <span className={styles.wallLabel}>mirror the filterable fields</span>
+              <span className={styles.wallLabel}>{t('entryWriter.wallLabel')}</span>
               <span className={styles.wallLine} />
             </div>
 
             <div className={`panel ${styles.absent}`}>
               <div className="panel-head">
                 <span>entry_slots_page_N</span>
-                <span className="tag tag-json">not provisioned</span>
+                <span className="tag tag-json">{t('entryWriter.absentTag')}</span>
               </div>
               <p>
-                There is nowhere for a value to be mirrored <em>to</em>. Marking a field
-                filterable wrote <code>is_filterable = 1</code> to the registry and
-                nothing else — no page, no slot, no index. So every filterable field in
-                the payload above lands in <code>stardust_sync_queue</code> instead, the
-                write succeeds anyway, and the value is safe in the JSON until something
-                catches up.
+                {t('entryWriter.absentBody1a')}
+                <em>{t('entryWriter.absentBody1To')}</em>
+                {t('entryWriter.absentBody1b')}
+                <code>is_filterable = 1</code>
+                {t('entryWriter.absentBody1c')}
+                <code>stardust_sync_queue</code>
+                {t('entryWriter.absentBody1d')}
               </p>
-              <p className={styles.absentNote}>
-                A page is a set of typed columns, every one of them indexed, and it
-                appears when a daemon decides capacity is needed. That is the next
-                section&rsquo;s job, and this is the debt it will be draining.
-              </p>
+              <p className={styles.absentNote}>{t('entryWriter.absentNote')}</p>
               <div className={styles.absentDdl}>
                 <CodeBlock
                   code={pageDdl(1, defaultPageColumns())}
                   lang="sql"
-                  title="what a provisioner would run"
+                  title={t('entryWriter.ddlTitle')}
                   copyable
                 />
               </div>
@@ -545,9 +552,9 @@ export default function EntryWriter() {
             <EventLog
               events={world.events}
               sources={['api', 'bulk_api']}
-              title="what the write path logged"
+              title={t('entryWriter.logTitle')}
               note="source=api · source=bulk_api"
-              empty="Nothing yet. Defining a model logs a message rather than an event, so this stays empty until the first write."
+              empty={t('entryWriter.logEmpty')}
             />
           </div>
         </>
@@ -567,11 +574,15 @@ function WriteVerdict({
   outcome: EntryWriteOutcome | null;
   queueDepth: number;
 }) {
+  const t = useTranslations('playground');
+
   if (outcome === null) {
     return (
       <div className={`panel ${styles.verdict} ${styles.verdictIdle}`}>
         <p>
-          Run <code>write()</code> to see what the payload split into.
+          {t('entryWriter.verdictIdlePrefix')}
+          <code>write()</code>
+          {t('entryWriter.verdictIdleSuffix')}
         </p>
       </div>
     );
@@ -586,12 +597,12 @@ function WriteVerdict({
           {outcome.enqueuedForBackfill ? (
             <span className="tag tag-pending">
               <span className="dot" />
-              enqueued for backfill
+              {t('entryWriter.enqueuedTag')}
             </span>
           ) : (
             <span className="tag tag-json">
               <span className="dot" />
-              nothing queued
+              {t('entryWriter.nothingQueuedTag')}
             </span>
           )}
         </span>
@@ -599,43 +610,35 @@ function WriteVerdict({
 
       <div className={styles.verdictBody}>
         <Bucket
-          label="mirrored into a slot"
+          label={t('entryWriter.status.mirrored')}
           tone="indexed"
           names={outcome.slotsWritten.map(s => `${s.fieldName} → ${s.slotColumn}`)}
-          empty="None. No page is provisioned, so there is no slot column to mirror into."
+          empty={t('entryWriter.bucketEmptyNoPage')}
         />
         <Bucket
-          label="filterable, waiting on a slot"
+          label={t('entryWriter.status.waiting')}
           tone="pending"
           names={outcome.awaitingSlot}
-          empty="None. Nothing in this payload is a filterable field."
+          empty={t('entryWriter.bucketEmptyNoFilterable')}
           note={
             outcome.awaitingSlot.length > 0
-              ? `One row went into stardust_sync_queue for the whole entry — not one per field. The queue is ${queueDepth} deep.`
+              ? t('entryWriter.bucketNoteQueue', { depth: queueDepth })
               : undefined
           }
         />
         <Bucket
-          label="JSON only"
+          label={t('entryWriter.status.jsonOnly')}
           tone="json"
           names={outcome.jsonOnly}
-          empty="None."
-          note={
-            outcome.jsonOnly.length > 0
-              ? 'These never queue. Having no slot is their steady state, not a delay — so there is nothing for a daemon to fix.'
-              : undefined
-          }
+          empty={t('entryWriter.bucketEmptyGeneric')}
+          note={outcome.jsonOnly.length > 0 ? t('entryWriter.bucketNoteJsonOnly') : undefined}
         />
         <Bucket
-          label="unknown keys"
+          label={t('entryWriter.status.unknown')}
           tone="json"
           names={outcome.unknownKeys}
-          empty="None."
-          note={
-            outcome.unknownKeys.length > 0
-              ? 'Not in stardust_fields for this model, stored verbatim, and readable back exactly as sent.'
-              : undefined
-          }
+          empty={t('entryWriter.bucketEmptyGeneric')}
+          note={outcome.unknownKeys.length > 0 ? t('entryWriter.bucketNoteUnknown') : undefined}
         />
       </div>
     </div>
@@ -686,32 +689,38 @@ function SeedPanel({
   modelId: number | null;
   onSeed: () => void;
 }) {
+  const t = useTranslations('playground');
+  const locale = useLocale();
+  const chunks = Math.ceil(SEED_COUNT / DEFAULT_CHUNK_SIZE);
+
   return (
     <div className={`panel ${styles.seed}`}>
       <div className="panel-head">
         <span>bulkWrite()</span>
-        <span className="tag tag-json">one transaction per chunk</span>
+        <span className="tag tag-json">{t('entryWriter.seedTag')}</span>
       </div>
 
       <div className={styles.seedBody}>
         <div>
           <p>
-            {SEED_COUNT} rows in one call. The engine chunks at {DEFAULT_CHUNK_SIZE} and
-            opens a transaction per chunk, so this commits{' '}
-            {Math.ceil(SEED_COUNT / DEFAULT_CHUNK_SIZE)} of them —{' '}
-            {DEFAULT_CHUNK_SIZE}, then {SEED_COUNT - DEFAULT_CHUNK_SIZE} — and logs one
-            line each. It does <em>not</em> log per entry: the bulk path reports at chunk
-            level, which is why the stream below gains{' '}
-            {Math.ceil(SEED_COUNT / DEFAULT_CHUNK_SIZE)} lines rather than {SEED_COUNT}.
+            {t('entryWriter.seedBody1a', {
+              seedCount: SEED_COUNT,
+              chunkSize: DEFAULT_CHUNK_SIZE,
+              chunks,
+              remainder: SEED_COUNT - DEFAULT_CHUNK_SIZE,
+            })}
+            <em>{t('entryWriter.seedBody1Not')}</em>
+            {t('entryWriter.seedBody1b', { chunks, seedCount: SEED_COUNT })}
           </p>
           <p className={styles.seedNote}>
-            Above {SYNC_THRESHOLD.toLocaleString('en-US')} entities the synchronous call
-            is refused outright and you use <code>submitBulkWrite()</code>, which queues a
-            job instead. Every number on this page is a real array length in the simulated
-            tables — nothing here is scaled or estimated.
+            {t('entryWriter.seedBody2a', {
+              threshold: SYNC_THRESHOLD.toLocaleString(locale === 'id' ? 'id-ID' : 'en-US'),
+            })}
+            <code>submitBulkWrite()</code>
+            {t('entryWriter.seedBody2b')}
           </p>
           <button type="button" className="btn" disabled={disabled} onClick={onSeed}>
-            seed {SEED_COUNT} rows
+            {t('entryWriter.seedButton', { count: SEED_COUNT })}
           </button>
         </div>
 

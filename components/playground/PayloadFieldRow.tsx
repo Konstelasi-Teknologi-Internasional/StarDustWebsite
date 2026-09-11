@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import type { PayloadRow } from '@/lib/sim/payload';
 import { coerceForSlot } from '@/lib/sim/write';
 import type { FieldIndexState } from '@/lib/sim/world';
@@ -42,6 +43,7 @@ export default function PayloadFieldRow({
   onRemove,
 }: Props) {
   const unknown = field.declaredType === null;
+  const t = useTranslations('playground');
 
   const coercion =
     field.declaredType === null || field.value === ''
@@ -55,37 +57,37 @@ export default function PayloadFieldRow({
           className={styles.payloadKey}
           value={field.name}
           spellCheck={false}
-          aria-label="unknown payload key"
+          aria-label={t('entryWriter.payloadRow.unknownKeyLabel')}
           onChange={e => onRename(e.target.value)}
         />
       ) : (
-        <span className={styles.payloadKey} title="a field of this model">
+        <span className={styles.payloadKey} title={t('entryWriter.payloadRow.registeredFieldTitle')}>
           {field.name}
         </span>
       )}
 
       <span className={styles.payloadMeta}>
         {unknown ? (
-          <span className="tag tag-json">not in the registry</span>
+          <span className="tag tag-json">{t('entryWriter.payloadRow.notInRegistry')}</span>
         ) : (
           <>
             <span className="tag tag-json">{field.declaredType}</span>
             {indexState === 'none' && (
-              <span className="tag tag-pending" title="a filter on this would be rejected">
+              <span className="tag tag-pending" title={t('entryWriter.payloadRow.noSlotTooltip')}>
                 <span className="dot" />
-                no slot
+                {t('entryWriter.payloadRow.noSlotTag')}
               </span>
             )}
             {indexState === 'building' && (
               <span className="tag tag-pending">
                 <span className="dot" />
-                backfilling
+                {t('entryWriter.payloadRow.backfillingTag')}
               </span>
             )}
             {indexState === 'live' && (
               <span className="tag tag-indexed">
                 <span className="dot" />
-                indexed
+                {t('entryWriter.payloadRow.indexedTag')}
               </span>
             )}
           </>
@@ -96,17 +98,21 @@ export default function PayloadFieldRow({
         className={styles.payloadValue}
         value={field.value}
         spellCheck={false}
-        placeholder="leave empty to omit the key"
-        aria-label={`value for ${field.name}`}
+        placeholder={t('entryWriter.payloadRow.valuePlaceholder')}
+        aria-label={t('entryWriter.payloadRow.valueLabel', { field: field.name })}
         onChange={e => onValue(e.target.value)}
       />
 
       <span className={styles.payloadNote}>
         {coercion === null ? null : coercion.ok ? (
           <span className={styles.coerceOk}>
-            would coerce to <code>{JSON.stringify(coercion.value)}</code>
+            {t('entryWriter.payloadRow.coercePrefix')}{' '}
+            <code>{JSON.stringify(coercion.value)}</code>
           </span>
         ) : (
+          // Simulates the message a real UncoercibleSlotValueException would
+          // carry — untranslated in both locales, same fidelity rule as
+          // `ModelBuilder`'s `draft.error`.
           <span className={styles.coerceBad}>{coercion.error}</span>
         )}
       </span>
@@ -118,8 +124,12 @@ export default function PayloadFieldRow({
         // suggest it can be removed from the model. That is `deleteField()`,
         // a migration over live data, and it is not on this screen.
         disabled={!unknown}
-        aria-label={unknown ? `remove key ${field.name}` : undefined}
-        title={unknown ? 'remove this key' : 'a field of this model — edit it in section A'}
+        aria-label={unknown ? t('entryWriter.payloadRow.removeKeyLabel', { field: field.name }) : undefined}
+        title={
+          unknown
+            ? t('entryWriter.payloadRow.removeKeyTitle')
+            : t('entryWriter.payloadRow.lockedRemoveTitle')
+        }
         onClick={onRemove}
       >
         ✕
