@@ -1,11 +1,10 @@
 'use client';
 
 import { createContext, useContext } from 'react';
+import { createTranslator, type Messages } from './resolve';
 import type { Locale } from './types';
 
-/** A message catalog namespace: arbitrarily nested strings and string arrays. */
-export type MessageNode = string | string[] | { [key: string]: MessageNode };
-export type Messages = Record<string, MessageNode>;
+export type { MessageNode, Messages } from './resolve';
 
 interface LocaleContextValue {
   locale: Locale;
@@ -46,36 +45,7 @@ export function useMessages(): Messages {
   return context.messages;
 }
 
-/** Resolve a dot-separated path (`'nav.links.howItWorks'`) against a nested message tree. */
-function resolvePath(node: MessageNode | undefined, path: string[]): MessageNode | undefined {
-  let current: MessageNode | undefined = node;
-  for (const segment of path) {
-    if (typeof current !== 'object' || Array.isArray(current) || current === null) {
-      return undefined;
-    }
-    current = current[segment];
-  }
-  return current;
-}
-
 export function useTranslations(namespace: string) {
   const messages = useMessages();
-  const domainMessages = messages[namespace];
-
-  return (key: string, params?: Record<string, string | number>): string => {
-    const value = resolvePath(domainMessages, key.split('.'));
-
-    if (typeof value !== 'string') {
-      return key;
-    }
-
-    if (params) {
-      return value.replace(/{(\w+)}/g, (match, paramKey) => {
-        const paramValue = params[paramKey];
-        return paramValue !== undefined ? String(paramValue) : match;
-      });
-    }
-
-    return value;
-  };
+  return createTranslator(messages[namespace]);
 }

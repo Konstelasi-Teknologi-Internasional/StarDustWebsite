@@ -1,6 +1,7 @@
 'use client';
 
 import { REPO } from '@/lib/links';
+import { useTranslations } from '@/lib/i18n';
 import styles from './SimulationNotice.module.css';
 
 /**
@@ -12,19 +13,20 @@ import styles from './SimulationNotice.module.css';
  * teaching tool and a page that quietly teaches something untrue.
  */
 export default function SimulationNotice() {
+  const t = useTranslations('playground');
+
   return (
     <aside className={`panel ${styles.notice}`}>
       <span className="tag tag-pending">
         <span className="dot" />
-        simulation
+        {t('simulationNotice.tag')}
       </span>
       <p>
-        This page models the engine in the browser. It is not connected to a
-        MySQL server, and no PHP runs anywhere — the rules it enforces were
-        written by hand to match the engine&apos;s, and where the two ever
-        disagree, <a href={REPO} target="_blank" rel="noreferrer">the engine is right</a>.
-        Slot layouts, statuses, chunk sizes and event names are the real ones;
-        row counts are scaled down to what a browser can hold.
+        {t('simulationNotice.before')}
+        <a href={REPO} target="_blank" rel="noreferrer">
+          {t('simulationNotice.linkText')}
+        </a>
+        {t('simulationNotice.after')}
       </p>
     </aside>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { SECTION_LABELS } from '@/lib/sim/notify';
+import { useTranslations } from '@/lib/i18n';
 import type { TourStep } from '@/lib/sim/tour';
 import { usePublishHeightVar } from '@/lib/usePublishHeightVar';
 import { usePlayground } from './PlaygroundContext';
@@ -40,6 +40,7 @@ export function TourToggle({
 }) {
   const { world, hydrated } = usePlayground();
   const [armed, setArmed] = useState(false);
+  const t = useTranslations('playground');
 
   // Before hydration the client renders `emptyWorld()` to match the static
   // export, so reading the restored world any earlier is a mismatch.
@@ -63,19 +64,15 @@ export function TourToggle({
   }
 
   return (
-    <div className={styles.toggle} role="group" aria-label="playground mode">
+    <div className={styles.toggle} role="group" aria-label={t('tourPanel.toggleGroupLabel')}>
       <button
         type="button"
         className={`${styles.mode} ${active ? styles.modeOn : ''} ${armed ? styles.armed : ''}`}
         aria-pressed={active}
         onClick={press}
-        title={
-          armed
-            ? 'This discards the world you have now'
-            : 'A scripted walk through the whole lifecycle, one step at a time'
-        }
+        title={armed ? t('tourPanel.discardWarning') : t('tourPanel.guidedHint')}
       >
-        {armed ? 'replace world?' : 'guided'}
+        {armed ? t('tourPanel.replaceWorld') : t('tourPanel.guided')}
       </button>
       <button
         type="button"
@@ -85,9 +82,9 @@ export function TourToggle({
           setArmed(false);
           onExit();
         }}
-        title="Every control unlocked, nothing scripted"
+        title={t('tourPanel.sandboxHint')}
       >
-        sandbox
+        {t('tourPanel.sandbox')}
       </button>
     </div>
   );
@@ -109,6 +106,8 @@ export function TourPanel({
   onExit: () => void;
 }) {
   const last = index === total - 1;
+  const t = useTranslations('playground');
+  const tTour = useTranslations('tour');
 
   const dockRef = useRef<HTMLDivElement | null>(null);
   // On a phone the dock spans the width and sits over whatever is behind it
@@ -119,13 +118,11 @@ export function TourPanel({
 
   return (
     <div ref={dockRef} className={styles.dock}>
-      <div className={`panel ${styles.panel}`} role="region" aria-label="Guided tour">
+      <div className={`panel ${styles.panel}`} role="region" aria-label={t('tourPanel.regionLabel')}>
         <div className={styles.head}>
-          <span className="eyebrow">
-            guided · {index + 1} of {total}
-          </span>
+          <span className="eyebrow">{t('tourPanel.progress', { index: index + 1, total })}</span>
           <button type="button" className={styles.quiet} onClick={onExit}>
-            exit
+            {t('tourPanel.exit')}
           </button>
         </div>
 
@@ -140,21 +137,23 @@ export function TourPanel({
             between steps; the two things that do are announced together, so a
             screen reader hears one sentence per press rather than three. */}
         <div className={styles.body} role="status">
-          <p className={styles.where}>in {SECTION_LABELS[step.section]}</p>
-          <h3 className={styles.title}>{step.title}</h3>
-          <p className={styles.prose}>{step.body}</p>
+          <p className={styles.where}>
+            {t('tourPanel.where', { section: t(`sections.${step.section}`) })}
+          </p>
+          <h3 className={styles.title}>{tTour(`steps.${step.id}.title`)}</h3>
+          <p className={styles.prose}>{tTour(`steps.${step.id}.body`)}</p>
         </div>
 
         <div className={styles.foot}>
           <button type="button" className="btn btn-primary" onClick={last ? onExit : onNext}>
-            {last ? 'to the sandbox' : 'next'}
+            {last ? t('tourPanel.toSandbox') : t('tourPanel.next')}
           </button>
           {/* There is no back: the reducer has no undo, and a world is a fold
               rather than a stack of diffs. Restarting replays from the reset,
               which is what stepping backwards would have to do anyway — so it
               says so instead of pretending otherwise. */}
           <button type="button" className={styles.quiet} onClick={onRestart}>
-            restart
+            {t('tourPanel.restart')}
           </button>
         </div>
       </div>

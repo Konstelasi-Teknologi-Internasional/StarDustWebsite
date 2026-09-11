@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import { DAEMON_NAMES, SPEEDS, type SpeedIndex } from '@/lib/sim/clock';
 import type { ScenarioId } from '@/lib/sim/scenarios';
 import { useReducedMotion } from '@/lib/useReducedMotion';
@@ -48,6 +49,7 @@ export default function ClockBar({
   const { world, dispatch } = usePlayground();
   const { clock } = world;
   const reduced = useReducedMotion();
+  const t = useTranslations('playground');
 
   const barRef = useRef<HTMLDivElement | null>(null);
 
@@ -99,13 +101,9 @@ export default function ClockBar({
           // that state cannot be entered at all — the note above the bar
           // already explains that step is how the walkthrough proceeds.
           disabled={reduced}
-          title={
-            reduced
-              ? 'Reduced motion is on, so the clock does not run itself. Use step.'
-              : undefined
-          }
+          title={reduced ? t('clockBar.reducedTitle') : undefined}
         >
-          {clock.running ? 'pause' : 'run'}
+          {clock.running ? t('clockBar.pause') : t('clockBar.run')}
         </button>
 
         <button
@@ -117,17 +115,17 @@ export default function ClockBar({
           // future path that sets it under reduced motion would otherwise
           // leave nothing on this bar able to advance the clock.
           disabled={clock.running && !reduced}
-          title="Advance exactly one tick"
+          title={t('clockBar.stepTitle')}
         >
-          step
+          {t('clockBar.step')}
         </button>
 
         <span className={styles.tick}>
-          tick <strong>{clock.tick}</strong>
+          {t('clockBar.tickLabel')} <strong>{clock.tick}</strong>
         </span>
       </div>
 
-      <div className={styles.group} role="group" aria-label="clock speed">
+      <div className={styles.group} role="group" aria-label={t('clockBar.speedGroupLabel')}>
         {SPEEDS.map((ms, i) => (
           <button
             key={ms}
@@ -141,7 +139,7 @@ export default function ClockBar({
         ))}
       </div>
 
-      <div className={styles.daemons} role="group" aria-label="daemons">
+      <div className={styles.daemons} role="group" aria-label={t('clockBar.daemonsGroupLabel')}>
         {DAEMON_NAMES.map(name => {
           const paused = clock.paused[name];
           return (
@@ -153,8 +151,8 @@ export default function ClockBar({
               onClick={() => dispatch({ type: 'daemon/togglePaused', daemon: name })}
               title={
                 paused
-                  ? `${name} is stopped — it will not run on its poll period`
-                  : `${name} polls every ${clock.periods[name]} ticks`
+                  ? t('clockBar.daemonStopped', { name })
+                  : t('clockBar.daemonPolls', { name, period: clock.periods[name] })
               }
             >
               <span className="dot" />
@@ -177,7 +175,7 @@ export default function ClockBar({
       <ShareButton open={shareOpen} onToggle={onToggleShare} />
 
       <button type="button" className={`btn ${styles.reset}`} onClick={onReset}>
-        reset world
+        {t('clockBar.resetWorld')}
       </button>
 
       {/* A second row rather than a second bar. It is `width: 100%`, and the

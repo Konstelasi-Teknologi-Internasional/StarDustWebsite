@@ -1,10 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import { SCENARIOS, type Scenario, type ScenarioId } from '@/lib/sim/scenarios';
 import { useReducedMotion } from '@/lib/useReducedMotion';
 import { usePlayground } from './PlaygroundContext';
 import styles from './ScenarioPicker.module.css';
+
+/** `'promotion-window'` → `'promotionWindow'` — `scenarios.json`'s key shape. */
+function scenarioKey(id: ScenarioId): string {
+  return id.replace(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase());
+}
 
 /**
  * The picker, and the strip that explains what it parked you in.
@@ -25,6 +31,8 @@ import styles from './ScenarioPicker.module.css';
 export function ScenarioButtons({ onLoad }: { onLoad: (id: ScenarioId) => void }) {
   const { world, hydrated } = usePlayground();
   const [armed, setArmed] = useState<ScenarioId | null>(null);
+  const t = useTranslations('playground');
+  const tScenarios = useTranslations('scenarios');
 
   // Before hydration the client renders `emptyWorld()` to match the server, so
   // reading the restored world any earlier is a mismatch. Un-hydrated therefore
@@ -43,23 +51,28 @@ export function ScenarioButtons({ onLoad }: { onLoad: (id: ScenarioId) => void }
   }
 
   return (
-    <div className={styles.buttons} role="group" aria-label="scenario presets">
-      <span className={styles.label}>scenario</span>
-      {SCENARIOS.map(scenario => (
-        <button
-          key={scenario.id}
-          type="button"
-          className={`${styles.load} ${armed === scenario.id ? styles.armed : ''}`}
-          onClick={() => press(scenario.id)}
-          title={
-            armed === scenario.id
-              ? 'This discards the world you have now'
-              : scenario.blurb
-          }
-        >
-          {armed === scenario.id ? 'replace world?' : scenario.title.toLowerCase()}
-        </button>
-      ))}
+    <div className={styles.buttons} role="group" aria-label={t('scenarioPicker.groupLabel')}>
+      <span className={styles.label}>{t('scenarioPicker.label')}</span>
+      {SCENARIOS.map(scenario => {
+        const key = scenarioKey(scenario.id);
+        return (
+          <button
+            key={scenario.id}
+            type="button"
+            className={`${styles.load} ${armed === scenario.id ? styles.armed : ''}`}
+            onClick={() => press(scenario.id)}
+            title={
+              armed === scenario.id
+                ? t('scenarioPicker.discardWarning')
+                : tScenarios(`scenarios.${key}.blurb`)
+            }
+          >
+            {armed === scenario.id
+              ? t('scenarioPicker.replaceWorld')
+              : tScenarios(`scenarios.${key}.title`).toLowerCase()}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -72,26 +85,29 @@ export function ScenarioStrip({
   onDismiss: () => void;
 }) {
   const reduced = useReducedMotion();
+  const t = useTranslations('playground');
+  const tScenarios = useTranslations('scenarios');
+  const key = scenarioKey(scenario.id);
 
   return (
     <div className={`panel ${styles.strip}`} role="status">
       <div className={styles.stripHead}>
-        <p className="eyebrow">parked</p>
+        <p className="eyebrow">{t('scenarioPicker.parkedEyebrow')}</p>
         <button type="button" className={styles.dismiss} onClick={onDismiss}>
-          dismiss
+          {t('scenarioPicker.dismiss')}
         </button>
       </div>
       <div className={styles.stripBody}>
-        <h3 className={styles.stripTitle}>{scenario.title}</h3>
-        <p className={styles.parked}>{scenario.parked}</p>
+        <h3 className={styles.stripTitle}>{tScenarios(`scenarios.${key}.title`)}</h3>
+        <p className={styles.parked}>{tScenarios(`scenarios.${key}.parked`)}</p>
         <p className={styles.next}>
-          <strong>Next:</strong>{' '}
+          <strong>{t('scenarioPicker.next')}</strong>{' '}
           {/* Under reduced motion the clock cannot run itself, so an
               instruction to press run would be an instruction to press a
               disabled button. */}
-          {reduced ? scenario.nextStepReduced : scenario.nextStep}{' '}
+          {tScenarios(`scenarios.${key}.${reduced ? 'nextStepReduced' : 'nextStep'}`)}{' '}
           <a href={scenario.anchor} className={styles.jump}>
-            go to {scenario.anchorLabel} →
+            {t('scenarioPicker.goTo', { target: tScenarios(`scenarios.${key}.anchorLabel`) })}
           </a>
         </p>
       </div>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { SECTION_LABELS } from '@/lib/sim/notify';
+import { useTranslations } from '@/lib/i18n';
 import { usePublishHeightVar } from '@/lib/usePublishHeightVar';
 import type { FeedCard } from './useNarration';
 import styles from './NarrationFeed.module.css';
@@ -36,6 +36,7 @@ type Props = {
  */
 export default function NarrationFeed({ cards, history, onDismiss }: Props) {
   const [open, setOpen] = useState(false);
+  const t = useTranslations('playground');
 
   const dockRef = useRef<HTMLDivElement | null>(null);
   // Called unconditionally, above the empty-state return below: this
@@ -51,8 +52,8 @@ export default function NarrationFeed({ cards, history, onDismiss }: Props) {
       {open && (
         <div className={`panel ${styles.drawer}`}>
           <div className="panel-head">
-            <span>what has happened</span>
-            <span className="tag tag-json">last {history.length}</span>
+            <span>{t('narrationFeed.history')}</span>
+            <span className="tag tag-json">{t('narrationFeed.lastCount', { count: history.length })}</span>
           </div>
           {/* No empty state, unlike `TableView` and `EventLog`. Every card is
               entered into history on arrival — suppressed ones included — so
@@ -67,17 +68,15 @@ export default function NarrationFeed({ cards, history, onDismiss }: Props) {
                   {card.headline}
                   {card.count > 1 && <em className={styles.count}>×{card.count}</em>}
                 </span>
-                <span className={styles.pastWhere}>{SECTION_LABELS[card.section]}</span>
+                <span className={styles.pastWhere}>{t(`sections.${card.section}`)}</span>
               </a>
             ))}
           </div>
-          <p className={styles.drawerFoot}>
-            The complete stream, unabridged, is the event log in the daemon section.
-          </p>
+          <p className={styles.drawerFoot}>{t('narrationFeed.footer')}</p>
         </div>
       )}
 
-      <div className={styles.stack} role="status" aria-label="What just changed">
+      <div className={styles.stack} role="status" aria-label={t('narrationFeed.liveRegionLabel')}>
         {cards.map(card => (
           <div key={card.seq} className={`panel ${styles.card}`}>
             <div className={styles.cardHead}>
@@ -88,7 +87,7 @@ export default function NarrationFeed({ cards, history, onDismiss }: Props) {
                 type="button"
                 className={styles.close}
                 onClick={() => onDismiss(card.seq)}
-                aria-label={`Dismiss: ${card.headline}`}
+                aria-label={t('narrationFeed.dismiss', { headline: card.headline })}
               >
                 ×
               </button>
@@ -97,7 +96,7 @@ export default function NarrationFeed({ cards, history, onDismiss }: Props) {
             {/* The affordance the whole feature exists for: the thing that
                 changed is somewhere else on a very long page. */}
             <a href={`#${card.section}`} className={styles.jump}>
-              go to {SECTION_LABELS[card.section]} →
+              {t('narrationFeed.goTo', { target: t(`sections.${card.section}`) })}
             </a>
           </div>
         ))}
@@ -109,7 +108,7 @@ export default function NarrationFeed({ cards, history, onDismiss }: Props) {
         onClick={() => setOpen(v => !v)}
         aria-expanded={open}
       >
-        {open ? 'hide' : `what has happened · ${history.length}`}
+        {open ? t('narrationFeed.hide') : t('narrationFeed.toggle', { count: history.length })}
       </button>
     </div>
   );

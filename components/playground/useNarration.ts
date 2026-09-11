@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import {
   coalesce,
   milestonesSince,
@@ -115,6 +116,7 @@ export function useNarration(
   const [cards, setCards] = useState<FeedCard[]>([]);
   const [history, setHistory] = useState<FeedCard[]>([]);
   const reduced = useReducedMotion();
+  const t = useTranslations('notify');
 
   // The high-water mark. A ref, not state: it must survive StrictMode's
   // double-invoked effect without re-processing, and it must be readable and
@@ -162,7 +164,7 @@ export function useNarration(
       return;
     }
 
-    const fresh = milestonesSince(world, markRef.current);
+    const fresh = milestonesSince(world, markRef.current, t);
     markRef.current = position;
     if (fresh.length === 0) return;
 
@@ -184,6 +186,13 @@ export function useNarration(
     if (shown.length > 0) {
       setCards(prev => merge(prev, shown));
     }
+    // `t` is deliberately not a dependency: `useTranslations` hands back a new
+    // function every render, and the locale it is bound to does not change
+    // for the life of this component — each locale is its own static route,
+    // never a runtime switch. Depending on it would rerun this on every
+    // render for no reason; the read position guard above already makes a
+    // rerun idempotent if one happens anyway.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [world]);
 
   const dismiss = useCallback((seq: number) => {

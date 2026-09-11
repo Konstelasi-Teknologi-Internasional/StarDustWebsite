@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import { DAEMON_NAMES } from '@/lib/sim/clock';
 import { runningPurges } from '@/lib/sim/delete';
 import { runningRenames } from '@/lib/sim/rename';
@@ -28,6 +29,7 @@ import styles from './NowLine.module.css';
  */
 export default function NowLine() {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   // No `hydrated` guard on any of these, deliberately and consistently. The
   // reducer is seeded with `emptyWorld()` and the snapshot arrives from a
@@ -50,38 +52,49 @@ export default function NowLine() {
   // world. Anything that later opens a fifth kind of checkpoint belongs here in
   // the same change.
   for (const promotion of runningPromotions(world)) {
-    parts.push(`${promotion.fieldName} building ${promotion.cursor}/${promotion.total}`);
+    parts.push(
+      t('nowLine.building', {
+        fieldName: promotion.fieldName,
+        cursor: promotion.cursor,
+        total: promotion.total,
+      }),
+    );
   }
 
   for (const rename of runningRenames(world)) {
     parts.push(
-      `${rename.previousName} → ${rename.currentName} rewriting ${rename.cursor}/${rename.total}`,
+      t('nowLine.rewriting', {
+        previousName: rename.previousName,
+        currentName: rename.currentName,
+        cursor: rename.cursor,
+        total: rename.total,
+      }),
     );
   }
 
   for (const purge of runningPurges(world)) {
     parts.push(
       purge.kind === 'field'
-        ? `${purge.label} purging ${purge.cursor}/${purge.total}`
+        ? t('nowLine.purging', { label: purge.label, cursor: purge.cursor, total: purge.total })
         : // The model purge's denominator counts *down* as the chunks delete
           // what they claim, so a cursor/total pair would read as going
           // backwards. The remaining count is the honest figure.
-          `${purge.label} deleting · ${purge.total} rows left`,
+          t('nowLine.deleting', { label: purge.label, total: purge.total }),
     );
   }
 
   if (queued > 0) {
-    parts.push(`${queued} ${queued === 1 ? 'row' : 'rows'} queued for a slot`);
+    parts.push(t(queued === 1 ? 'nowLine.queuedRow' : 'nowLine.queuedRows', { count: queued }));
   }
 
   return (
     <div className={styles.now}>
-      <span className={styles.label}>now</span>
+      <span className={styles.label}>{t('nowLine.label')}</span>
 
       {parts.length === 0 ? (
         // Reads as deliberately idle rather than broken — the same discipline
         // the empty tables and the empty log follow.
-        <span className={styles.idle}>nothing in flight</span>
+        <span className={styles.idle}>{t('nowLine.idle')}</span>
       ) : (
         <span className={styles.parts}>{parts.join(' · ')}</span>
       )}
@@ -90,8 +103,8 @@ export default function NowLine() {
         <span className={`tag tag-pending ${styles.stopped}`}>
           <span className="dot" />
           {stopped.length === DAEMON_NAMES.length
-            ? 'all daemons stopped'
-            : `${stopped.join(', ')} stopped`}
+            ? t('nowLine.allStopped')
+            : t('nowLine.someStopped', { names: stopped.join(', ') })}
         </span>
       )}
     </div>

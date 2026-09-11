@@ -37,8 +37,18 @@
  * makes "`city` is indexed" a fact to look up rather than a claim to trust.
  */
 
+import enNotify from '../../messages/en/notify.json';
+import { createTranslator, type MessageNode, type Translate } from '../i18n/resolve';
 import type { EventFields, EventName, SimEvent } from './events';
 import { fieldIndexState, type SimWorld } from './world';
+
+/**
+ * The English translator, for the two callers with no locale to ask: a
+ * plain Node process (`verify-narration.ts` and friends, which only check
+ * that a milestone says *something*) and any caller that does not pass one.
+ * `useNarration` passes the real one, bound to whichever locale is live.
+ */
+const defaultTranslate: Translate = createTranslator(enNotify as MessageNode);
 
 /* ------------------------------------------------------------------ *
  * The six section anchors
@@ -62,16 +72,6 @@ export const FEED_SECTIONS = [
 ] as const;
 
 export type FeedSection = (typeof FEED_SECTIONS)[number];
-
-/** What to call a section in "go to … →". Lower case: it sits mid-sentence. */
-export const SECTION_LABELS: Record<FeedSection, string> = {
-  define: 'the model builder',
-  tables: 'the tables',
-  write: 'the entry writer',
-  daemons: 'the daemons',
-  query: 'the query builder',
-  evolve: 'the schema changer',
-};
 
 /* ------------------------------------------------------------------ *
  * The vocabulary
@@ -197,14 +197,26 @@ function fieldName(world: SimWorld, fieldId: number | undefined): string | undef
  * The map
  * ------------------------------------------------------------------ */
 
-/** What a spec produces, or `null` to decline this particular line. */
-type Say = { headline: string; detail: string } | null;
+/**
+ * What a spec produces, or `null` to decline this particular line.
+ *
+ * A key into `notify.json` plus the params to interpolate into it, never a
+ * rendered string — the actual rendering happens in {@link toMilestone}, the
+ * one place that holds a `Translate`. A spec that resolves its own sub-phrase
+ * (`preFlightRejected`'s `reason`) takes `translate` for exactly that reason.
+ */
+type Say = {
+  headlineKey: string;
+  headlineParams?: Record<string, string | number>;
+  detailKey: string;
+  detailParams?: Record<string, string | number>;
+} | null;
 
 interface MilestoneSpec {
   kind: MilestoneKind;
   section: FeedSection;
   tone: MilestoneTone;
-  say(fields: EventFields | undefined, world: SimWorld): Say;
+  say(fields: EventFields | undefined, world: SimWorld, translate: Translate): Say;
 }
 
 /**
@@ -248,8 +260,10 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       const columns = indexed === '' ? [] : indexed.split(',');
       const shape = countByFamily(columns);
       return {
-        headline: `Page ${pageId} exists now`,
-        detail: `${table} — ${columns.length} slot columns, every one indexed: ${shape}.`,
+        headlineKey: 'pageProvisioned.headline',
+        headlineParams: { pageId },
+        detailKey: 'pageProvisioned.detail',
+        detailParams: { tableName: table, columnCount: columns.length, shape },
       };
     },
   },
@@ -266,10 +280,13 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       const pageId = num(fields, 'page_id');
       const status = str(fields, 'status') ?? 'reserved';
       return {
-        headline: `${name} took column ${column}`,
-        detail:
-          `The reserver picked it — you did not, and could not. ` +
-          `It is ${status}${pageId === undefined ? '' : ` on page ${pageId}`}.`,
+        headlineKey: 'slotReserved.headline',
+        headlineParams: { fieldName: name, column },
+        detailKey: 'slotReserved.detail',
+        detailParams: {
+          status,
+          pageInfo: pageId === undefined ? '' : ` on page ${pageId}`,
+        },
       };
     },
   },
@@ -283,10 +300,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (name === undefined) return null;
 
       return {
-        headline: `${name} is indexed`,
-        detail:
-          'The backfill finished and the slot flipped to ready. ' +
-          'The filter that was refused a moment ago now returns rows.',
+        headlineKey: 'fieldIndexed.headline',
+        headlineParams: { fieldName: name },
+        detailKey: 'fieldIndexed.detail',
       };
     },
   },
@@ -305,10 +321,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       const becomingFilterable = bool(fields, 'new_is_filterable') === true;
       if (!becomingFilterable) {
         return {
-          headline: `${name} is no longer filterable`,
-          detail:
-            'Its column is tombstoned. The residue stays there until the ' +
-            'Liberator sweeps it, and only then can it be reserved again.',
+          headlineKey: 'retypeStarted.headlineDemote',
+          headlineParams: { fieldName: name },
+          detailKey: 'retypeStarted.detailDemote',
         };
       }
 
@@ -316,17 +331,14 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       // and no slot was free to reserve inside the same transaction.
       return bool(fields, 'deferred_assignment') === true
         ? {
-            headline: `${name} is waiting on capacity`,
-            detail:
-              'It is marked filterable with no slot behind it — nothing was ' +
-              'free. The Watcher has to provision a page before the backfill ' +
-              'can start.',
+            headlineKey: 'retypeStarted.headlineWaiting',
+            headlineParams: { fieldName: name },
+            detailKey: 'retypeStarted.detailWaiting',
           }
         : {
-            headline: `${name} is being indexed`,
-            detail:
-              'A slot is reserved and backfilling. Filters on it are refused ' +
-              'for the whole of that window, which is the point of it.',
+            headlineKey: 'retypeStarted.headlineIndexing',
+            headlineParams: { fieldName: name },
+            detailKey: 'retypeStarted.detailIndexing',
           };
     },
   },
@@ -340,10 +352,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (entryId === undefined) return null;
 
       return {
-        headline: `A write outran its index`,
-        detail:
-          `Entry ${entryId} is stored in full — the payload is the system of ` +
-          'record. It is queued for a slot the Reconciler will reserve.',
+        headlineKey: 'exhaustionFallback.headline',
+        detailKey: 'exhaustionFallback.detail',
+        detailParams: { entryId },
       };
     },
   },
@@ -358,8 +369,10 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (entryId === undefined || reason === undefined) return null;
 
       return {
-        headline: `Entry ${entryId} was quarantined`,
-        detail: `${reason} — kept in the DLQ rather than dropped, and replayable.`,
+        headlineKey: 'dlqInserted.headline',
+        headlineParams: { entryId },
+        detailKey: 'dlqInserted.detail',
+        detailParams: { reason },
       };
     },
   },
@@ -368,14 +381,15 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
     kind: 'filter-refused',
     section: 'query',
     tone: 'warn',
-    say(fields, world) {
+    say(fields, world, translate) {
       const reason = str(fields, 'reason');
       const name = str(fields, 'field_name');
       if (reason === undefined || name === undefined) return null;
 
       return {
-        headline: 'That filter was refused',
-        detail: refusalDetail(reason, name, world),
+        headlineKey: 'preFlightRejected.headline',
+        detailKey: 'preFlightRejected.detail',
+        detailParams: { reason: refusalDetail(reason, name, world, translate) },
       };
     },
   },
@@ -393,10 +407,10 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (oldName === undefined || newName === undefined) return null;
 
       return {
-        headline: `${oldName} is now ${newName}`,
-        detail:
-          'The registry changed instantly; every stored payload is still on ' +
-          `the old key. Reads bridge the gap, filters on ${oldName} do not.`,
+        headlineKey: 'renameStarted.headline',
+        headlineParams: { oldName, newName },
+        detailKey: 'renameStarted.detail',
+        detailParams: { oldName },
       };
     },
   },
@@ -410,10 +424,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (newName === undefined) return null;
 
       return {
-        headline: `Every row is on ${newName} now`,
-        detail:
-          'The backfill finished and previous_name is null again. The read ' +
-          'fallback is retired — nothing needs it, because nothing is behind.',
+        headlineKey: 'renameComplete.headline',
+        headlineParams: { newName },
+        detailKey: 'renameComplete.detail',
       };
     },
   },
@@ -431,11 +444,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (name === undefined) return null;
 
       return {
-        headline: `${name} is gone from every read`,
-        detail:
-          'Severance is instant and total — reads, filters, exports and ' +
-          'describeModel() all stop seeing it. Its values are still sitting ' +
-          'in entry_data until the purge reaches them.',
+        headlineKey: 'fieldSevered.headline',
+        headlineParams: { fieldName: name },
+        detailKey: 'fieldSevered.detail',
       };
     },
   },
@@ -449,11 +460,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (name === undefined) return null;
 
       return {
-        headline: `${name} is fully purged`,
-        detail:
-          'The last chunk removed the key from every payload and dropped the ' +
-          'registry row with it. The name is reusable again — it was not, ' +
-          'while the row still held it.',
+        headlineKey: 'fieldPurged.headline',
+        headlineParams: { fieldName: name },
+        detailKey: 'fieldPurged.detail',
       };
     },
   },
@@ -471,11 +480,10 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (name === undefined || fieldCount === undefined) return null;
 
       return {
-        headline: `${name} has gone dark`,
-        detail:
-          `Severed along with all ${fieldCount} of its fields. Reads return ` +
-          'nothing — not an error, nothing, exactly as for a model that never ' +
-          'existed — and writes are refused rather than stripped.',
+        headlineKey: 'modelSevered.headline',
+        headlineParams: { modelName: name },
+        detailKey: 'modelSevered.detail',
+        detailParams: { fieldCount },
       };
     },
   },
@@ -492,10 +500,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       // here. This is the one drain in the engine that destroys rows, and
       // there is no undelete — a green card would be the wrong feeling.
       return {
-        headline: `Model ${modelId} and its rows are gone`,
-        detail:
-          'The purge deleted the entries themselves, not just keys, and the ' +
-          'final chunk dropped the model row. Nothing retains them.',
+        headlineKey: 'modelPurged.headline',
+        headlineParams: { modelId },
+        detailKey: 'modelPurged.detail',
       };
     },
   },
@@ -509,10 +516,9 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
       if (slotId === undefined) return null;
 
       return {
-        headline: 'A tombstoned column is clear',
-        detail:
-          `Slot ${slotId} swept to the end of the page. The column holds no ` +
-          'residue and is free for the next reservation.',
+        headlineKey: 'columnReclaimed.headline',
+        detailKey: 'columnReclaimed.detail',
+        detailParams: { slotId },
       };
     },
   },
@@ -534,10 +540,10 @@ const MILESTONES: Partial<Record<EventName, MilestoneSpec>> = {
  * model whose query was just run, which is the same answer arrived at
  * honestly.
  */
-function refusalDetail(reason: string, name: string, world: SimWorld): string {
+function refusalDetail(reason: string, name: string, world: SimWorld, translate: Translate): string {
   switch (reason) {
     case 'field_unknown':
-      return `There is no field called ${name} on this model.`;
+      return translate('rejectionReasons.fieldUnknown', { fieldName: name });
 
     case 'field_not_filterable': {
       const modelId = world.queryDraft.modelId;
@@ -549,40 +555,30 @@ function refusalDetail(reason: string, name: string, world: SimWorld): string {
             );
 
       if (field !== undefined && fieldIndexState(world, field.id) === 'building') {
-        return (
-          `${name} is mid-backfill. A half-built index is refused rather ` +
-          'than answered from, which is why this is an error and not an ' +
-          'empty result.'
-        );
+        return translate('rejectionReasons.fieldNotFilterableBuilding', { fieldName: name });
       }
-      return (
-        `${name} has no slot behind it. The registry may well say it is ` +
-        'filterable — that is intent, and a filter needs an index.'
-      );
+      return translate('rejectionReasons.fieldNotFilterableNoSlot', { fieldName: name });
     }
 
     case 'value_type_mismatch':
-      return `The value given for ${name} is the wrong type for its declared type.`;
+      return translate('rejectionReasons.valueTypeMismatch', { fieldName: name });
 
     case 'value_out_of_bounds':
-      return `The value given for ${name} is outside the bounds the wire format allows.`;
+      return translate('rejectionReasons.valueOutOfBounds', { fieldName: name });
 
     case 'sort_field_unknown':
-      return `You cannot sort by ${name} — there is no such field on this model.`;
+      return translate('rejectionReasons.sortFieldUnknown', { fieldName: name });
 
     case 'sort_field_not_sortable':
-      return `${name} has no live slot, so there is no index to sort it by.`;
+      return translate('rejectionReasons.sortFieldNotSortable', { fieldName: name });
 
     case 'cursor_sort_mismatch':
-      return (
-        'The cursor was minted under a different ordering. Walking it now ' +
-        'would silently page through a different sequence.'
-      );
+      return translate('rejectionReasons.cursorSortMismatch');
 
     default:
       // A reason this map has not caught up with. Naming it is better than
       // inventing a sentence about it.
-      return `Pre-flight refused it: ${reason}.`;
+      return translate('rejectionReasons.unknown', { reason });
   }
 }
 
@@ -590,20 +586,32 @@ function refusalDetail(reason: string, name: string, world: SimWorld): string {
  * The two entry points
  * ------------------------------------------------------------------ */
 
-/** One line, narrated — or `null` when it is not a milestone. */
-export function toMilestone(event: SimEvent, world: SimWorld): Milestone | null {
+/**
+ * One line, narrated — or `null` when it is not a milestone.
+ *
+ * `translate` defaults to English, for a plain Node process with no locale to
+ * ask (`verify-narration.ts`) and for any other caller that has none in
+ * scope. `useNarration` passes the real one, bound to whichever locale is
+ * live — the only place in the render path that needs to know this map exists
+ * at all.
+ */
+export function toMilestone(
+  event: SimEvent,
+  world: SimWorld,
+  translate: Translate = defaultTranslate,
+): Milestone | null {
   const spec = MILESTONES[event.event];
   if (spec === undefined) return null;
 
-  const said = spec.say(event.fields, world);
+  const said = spec.say(event.fields, world, translate);
   if (said === null) return null;
 
   return {
     seq: event.seq,
     kind: spec.kind,
     section: spec.section,
-    headline: said.headline,
-    detail: said.detail,
+    headline: translate(said.headlineKey, said.headlineParams),
+    detail: translate(said.detailKey, said.detailParams),
     tone: spec.tone,
   };
 }
@@ -631,11 +639,15 @@ export function readPosition(world: SimWorld): number {
  * which is the whole reason the feed needs no state on `SimWorld` and forces
  * no snapshot bump.
  */
-export function milestonesSince(world: SimWorld, seq: number): Milestone[] {
+export function milestonesSince(
+  world: SimWorld,
+  seq: number,
+  translate: Translate = defaultTranslate,
+): Milestone[] {
   const out: Milestone[] = [];
   for (const event of world.events) {
     if (event.seq <= seq) continue;
-    const milestone = toMilestone(event, world);
+    const milestone = toMilestone(event, world, translate);
     if (milestone !== null) out.push(milestone);
   }
   return out;

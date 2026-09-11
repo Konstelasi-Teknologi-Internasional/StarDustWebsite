@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import Footer from '@/components/Footer';
 import Nav from '@/components/Nav';
+import { useTranslations } from '@/lib/i18n';
 import { tickMs } from '@/lib/sim/clock';
 import { fromQuery, type LinkRecipe } from '@/lib/sim/link';
 import type { FeedSection } from '@/lib/sim/notify';
@@ -66,6 +67,7 @@ export default function Playground() {
   const [world, dispatch] = useReducer(reduce, undefined, emptyWorld);
   const [hydrated, setHydrated] = useState(false);
   const reduced = useReducedMotion();
+  const t = useTranslations('playground');
 
   /**
    * The guided-tour cursor. `null` is the sandbox — every control unlocked,
@@ -272,13 +274,9 @@ export default function Playground() {
       <main id="main" className={styles.main}>
         <div className="shell">
           <header className={styles.head}>
-            <p className="eyebrow">playground</p>
-            <h1 className={styles.title}>Build a schema, then watch it become MySQL.</h1>
-            <p className="section-lede">
-              One continuous world. Define a model, write rows into it, stop the daemons
-              mid-flight and see the system be honestly incomplete — then let them finish
-              and watch the identical query start returning rows.
-            </p>
+            <p className="eyebrow">{t('header.eyebrow')}</p>
+            <h1 className={styles.title}>{t('header.title')}</h1>
+            <p className="section-lede">{t('header.lede')}</p>
             {/* The mode switch, in the slot stage 5.5 left uncommitted when it
                 put the scenario picker on the clock bar instead.
 
@@ -301,8 +299,9 @@ export default function Playground() {
 
           {reduced && (
             <p className={styles.reducedNote}>
-              Reduced motion is on, so the clock will not run on its own. Use{' '}
-              <strong>step</strong> to advance it one tick at a time.
+              {t('header.reducedBefore')}
+              <strong>{t('clockBar.step')}</strong>
+              {t('header.reducedAfter')}
             </p>
           )}
 

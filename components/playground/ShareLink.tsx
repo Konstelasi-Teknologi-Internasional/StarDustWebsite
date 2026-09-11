@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import {
   describeRecipe,
   recipeFor,
@@ -31,6 +32,8 @@ import styles from './ShareLink.module.css';
  */
 
 export function ShareButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  const t = useTranslations('playground');
+
   return (
     <button
       type="button"
@@ -40,9 +43,9 @@ export function ShareButton({ open, onToggle }: { open: boolean; onToggle: () =>
       // Only while the panel exists: `aria-controls` pointing at an id that is
       // not in the document is worse than no `aria-controls` at all.
       aria-controls={open ? 'share-strip' : undefined}
-      title="A link that rebuilds this world on someone else's screen"
+      title={t('shareLink.triggerTitle')}
     >
-      share
+      {t('shareLink.trigger')}
     </button>
   );
 }
@@ -59,6 +62,7 @@ export function ShareStrip({
   const { world } = usePlayground();
   const [copied, setCopied] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const t = useTranslations('playground');
 
   const { recipe, unseeded, travels } = useMemo(
     () => recipeFor(world, { scenarioId, stepIndex }),
@@ -115,29 +119,27 @@ export function ShareStrip({
   }
 
   return (
-    <div className={`panel ${styles.strip}`} id="share-strip" role="group" aria-label="share this world">
+    <div
+      className={`panel ${styles.strip}`}
+      id="share-strip"
+      role="group"
+      aria-label={t('shareLink.groupLabel')}
+    >
       <div className={styles.head}>
-        <p className="eyebrow">share</p>
+        <p className="eyebrow">{t('shareLink.eyebrow')}</p>
         <button type="button" className={styles.dismiss} onClick={onDismiss}>
-          dismiss
+          {t('shareLink.dismiss')}
         </button>
       </div>
 
       <div className={styles.body}>
         {empty ? (
-          <p className={styles.note}>
-            There is nothing to share yet. Define a model, load a scenario, or start the
-            guided tour, and this link will rebuild it.
-          </p>
+          <p className={styles.note}>{t('shareLink.emptyNote')}</p>
         ) : !travels ? (
           // Refusing to show a link beats showing one that decodes to nothing.
           // The recipient of a link past the decoder's caps lands on an empty
           // playground with no way to tell that anything was meant to be there.
-          <p className={styles.note}>
-            This world is past what a link can carry — too many models, or too many
-            fields on one of them. Everything still works here; there is just no URL
-            short enough to rebuild it on someone else&apos;s screen.
-          </p>
+          <p className={styles.note}>{t('shareLink.tooBigNote')}</p>
         ) : (
           <>
             <div className={styles.row}>
@@ -147,26 +149,25 @@ export function ShareStrip({
                 type="text"
                 readOnly
                 value={url}
-                aria-label="link to this world"
+                aria-label={t('shareLink.urlLabel')}
                 onFocus={event => event.currentTarget.select()}
               />
               <button type="button" className={`btn ${styles.copy}`} onClick={copy}>
-                {copied ? 'copied' : 'copy'}
+                {copied ? t('shareLink.copied') : t('shareLink.copy')}
               </button>
             </div>
 
             <p className={styles.note}>
-              Carries <strong>{describeRecipe(recipe)}</strong>. The link is a recipe, not
-              a copy of the database — opening it rebuilds this world by replaying the
-              same actions, so it stays short enough to paste anywhere.
+              {t('shareLink.carriesPrefix')}
+              <strong>{describeRecipe(recipe)}</strong>
+              {t('shareLink.carriesSuffix')}
             </p>
 
             {unseeded.length > 0 && (
               <p className={styles.caveat}>
-                Rows written by hand cannot travel: {unseeded.join(', ')}{' '}
-                {unseeded.length === 1 ? 'arrives' : 'arrive'} with{' '}
-                {unseeded.length === 1 ? 'its' : 'their'} schema and no rows. Seeded rows
-                are reproduced exactly, because the seed is deterministic.
+                {t(unseeded.length === 1 ? 'shareLink.caveatSingular' : 'shareLink.caveatPlural', {
+                  names: unseeded.join(', '),
+                })}
               </p>
             )}
           </>
@@ -185,21 +186,24 @@ export function SharedLinkStrip({
   onLoad: () => void;
   onDismiss: () => void;
 }) {
+  const t = useTranslations('playground');
+
   return (
     <div className={`panel ${styles.strip}`} role="status">
       <div className={styles.head}>
-        <p className="eyebrow">shared link</p>
+        <p className="eyebrow">{t('shareLink.sharedEyebrow')}</p>
         <button type="button" className={styles.dismiss} onClick={onDismiss}>
-          dismiss
+          {t('shareLink.dismiss')}
         </button>
       </div>
       <div className={styles.body}>
         <p className={styles.note}>
-          Someone shared a world with you: <strong>{describeRecipe(recipe)}</strong>. You
-          already have one open, so nothing has changed yet.
+          {t('shareLink.sharedPrefix')}
+          <strong>{describeRecipe(recipe)}</strong>
+          {t('shareLink.sharedSuffix')}
         </p>
         <button type="button" className={`btn ${styles.load}`} onClick={onLoad}>
-          load it — this replaces your world
+          {t('shareLink.loadButton')}
         </button>
       </div>
     </div>
