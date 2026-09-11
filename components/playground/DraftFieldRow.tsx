@@ -1,6 +1,7 @@
 'use client';
 
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import type { DraftField } from '@/lib/sim/draft';
 import { DECLARED_TYPES } from '@/lib/sim/registry';
 import type { DeclaredType } from '@/lib/sim/types';
@@ -65,6 +66,8 @@ export default function DraftFieldRow({
   onGripDown,
   gripHandlers,
 }: Props) {
+  const t = useTranslations('playground');
+
   return (
     <div
       className={`${styles.row} ${dragging ? styles.rowDragging : ''} ${
@@ -94,7 +97,7 @@ export default function DraftFieldRow({
         value={field.name}
         spellCheck={false}
         readOnly={locked}
-        aria-label={`name of field ${index + 1}`}
+        aria-label={t('modelBuilder.fieldName', { index: index + 1 })}
         onChange={e => onPatch({ name: e.target.value })}
       />
 
@@ -102,12 +105,12 @@ export default function DraftFieldRow({
         className={styles.type}
         value={field.declaredType}
         disabled={locked}
-        aria-label={`declared type of ${field.name}`}
+        aria-label={t('modelBuilder.declaredType', { field: field.name })}
         onChange={e => onPatch({ declaredType: e.target.value as DeclaredType })}
       >
-        {DECLARED_TYPES.map(t => (
-          <option key={t} value={t}>
-            {t}
+        {DECLARED_TYPES.map(type => (
+          <option key={type} value={type}>
+            {type}
           </option>
         ))}
       </select>
@@ -121,16 +124,16 @@ export default function DraftFieldRow({
         onClick={() => onPatch({ isFilterable: !field.isFilterable })}
       >
         <span className={styles.knob} />
-        {field.isFilterable ? 'filterable' : 'JSON only'}
+        {field.isFilterable ? t('modelBuilder.filterableTag') : t('modelBuilder.jsonOnlyTag')}
       </button>
 
       <span className={styles.rowActions}>
-        {locked && <span className="tag tag-json">in the registry</span>}
+        {locked && <span className="tag tag-json">{t('modelBuilder.inRegistryTag')}</span>}
         <button
           type="button"
           className={styles.icon}
           disabled={locked || index === 0}
-          aria-label={`move ${field.name} up`}
+          aria-label={t('modelBuilder.moveUp', { field: field.name })}
           onClick={() => onMove(index - 1)}
         >
           ↑
@@ -139,7 +142,7 @@ export default function DraftFieldRow({
           type="button"
           className={styles.icon}
           disabled={locked || index === count - 1}
-          aria-label={`move ${field.name} down`}
+          aria-label={t('modelBuilder.moveDown', { field: field.name })}
           onClick={() => onMove(index + 1)}
         >
           ↓
@@ -148,7 +151,7 @@ export default function DraftFieldRow({
           type="button"
           className={styles.icon}
           disabled={locked}
-          aria-label={`remove ${field.name}`}
+          aria-label={t('modelBuilder.remove', { field: field.name })}
           onClick={onRemove}
         >
           ✕

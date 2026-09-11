@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 import CodeBlock from '@/components/CodeBlock';
+import { useTranslations } from '@/lib/i18n';
 import { usePointerDrag } from '@/lib/usePointerDrag';
 import { slotSqlType } from '@/lib/sim/ddl';
 import type { CommitSummary, DraftField } from '@/lib/sim/draft';
@@ -12,6 +13,8 @@ import { fieldIndexState, fieldsOf } from '@/lib/sim/world';
 import DraftFieldRow from './DraftFieldRow';
 import { usePlayground } from './PlaygroundContext';
 import styles from './ModelBuilder.module.css';
+
+type Translate = ReturnType<typeof useTranslations>;
 
 /** What a drag is carrying: a new field from the palette, or an existing row. */
 type Payload =
@@ -27,15 +30,13 @@ type Payload =
  * rule about slot columns is exactly what the one-simulation-core rule
  * forbids, and this is what it looks like when it goes wrong.
  */
-const TYPE_SUFFIX: Record<DeclaredType, string> = {
-  string: ', indexed on a 766-character prefix',
-  int: '',
-  numeric: '',
-  datetime: '',
+const TYPE_SUFFIX_KEY: Partial<Record<DeclaredType, string>> = {
+  string: 'modelBuilder.stringIndexSuffix',
 };
 
-function typeBlurb(declaredType: DeclaredType): string {
-  return `${slotSqlType(declaredType)}${TYPE_SUFFIX[declaredType]}`;
+function typeBlurb(declaredType: DeclaredType, t: Translate): string {
+  const key = TYPE_SUFFIX_KEY[declaredType];
+  return `${slotSqlType(declaredType)}${key ? t(key) : ''}`;
 }
 
 /**
@@ -60,6 +61,7 @@ function typeBlurb(declaredType: DeclaredType): string {
 export default function ModelBuilder() {
   const { world, dispatch } = usePlayground();
   const { draft } = world;
+  const t = useTranslations('playground');
 
   // Announced rather than shown: a reorder done from the keyboard produces no
   // visual event a screen reader would otherwise report.
@@ -80,7 +82,18 @@ export default function ModelBuilder() {
       if (to === from) return;
 
       dispatch({ type: 'draft/moveField', from, to });
-      setStatus(`${draft.fields[from]?.name ?? 'field'} moved to position ${to + 1} of ${draft.fields.length}.`);
+      setStatus(
+        t('modelBuilder.statusMoved', {
+          field: draft.fields[from]?.name ?? 'field',
+          to: to + 1,
+          total: draft.fields.length,
+        }),
+      );
+      // `t` is deliberately not a dependency — see `useNarration`'s comment on
+      // the same point: `useTranslations` hands back a new function every
+      // render, and the locale it is bound to never changes for the life of
+      // this component.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [dispatch, draft.fields],
   );
@@ -97,7 +110,9 @@ export default function ModelBuilder() {
 
   const move = (field: DraftField, from: number) => (to: number) => {
     dispatch({ type: 'draft/moveField', from, to });
-    setStatus(`${field.name} moved to position ${to + 1} of ${draft.fields.length}.`);
+    setStatus(
+      t('modelBuilder.statusMoved', { field: field.name, to: to + 1, total: draft.fields.length }),
+    );
   };
 
   const committed = world.models.filter(m => m.deletedAt === null);
@@ -114,34 +129,34 @@ export default function ModelBuilder() {
 
   return (
     <section className={styles.section} id="define" aria-labelledby="define-title" tabIndex={-1}>
-      <p className="eyebrow">section a</p>
+      <p className="eyebrow">{t('modelBuilder.eyebrow')}</p>
       <h2 id="define-title" className={styles.title}>
-        Define your models
+        {t('modelBuilder.title')}
       </h2>
       <p className="section-lede">
-        Add fields, name them, decide which ones you will want to filter on. Your tenants
-        do this at runtime and it never runs an <code>ALTER TABLE</code> — a field is a
-        row in <code>stardust_fields</code>, not a column in your schema.
+        {t('modelBuilder.lede1')}
+        <code>ALTER TABLE</code>
+        {t('modelBuilder.lede2')}
+        <code>stardust_fields</code>
+        {t('modelBuilder.lede3')}
       </p>
 
       <div className={styles.grid}>
         <div className={styles.builder}>
           <div className={`panel ${styles.palette}`}>
             <div className="panel-head">
-              <span>field types</span>
+              <span>{t('modelBuilder.paletteTitle')}</span>
               <span className="tag tag-json">declared_type ENUM</span>
             </div>
             <div className={styles.paletteBody}>
-              <p className={styles.hint}>
-                Click to add one, or drag it into the list to place it exactly.
-              </p>
+              <p className={styles.hint}>{t('modelBuilder.paletteHint')}</p>
               <div className={styles.chips}>
-                {DECLARED_TYPES.map(t => (
+                {DECLARED_TYPES.map(type => (
                   <button
-                    key={t}
+                    key={type}
                     type="button"
                     className={styles.chip}
-                    onPointerDown={start({ kind: 'palette', declaredType: t })}
+                    onPointerDown={start({ kind: 'palette', declaredType: type })}
                     {...handlers}
                     // The real action, and the only one a keyboard can reach:
                     // Enter and Space produce a click and never a pointerup.
@@ -149,11 +164,11 @@ export default function ModelBuilder() {
                     // `ignoreClick()` is what stops it being added twice.
                     onClick={() => {
                       if (ignoreClick()) return;
-                      dispatch({ type: 'draft/addField', declaredType: t });
+                      dispatch({ type: 'draft/addField', declaredType: type });
                     }}
                   >
-                    <span className={styles.chipName}>{t}</span>
-                    <span className={styles.chipNote}>{typeBlurb(t)}</span>
+                    <span className={styles.chipName}>{type}</span>
+                    <span className={styles.chipNote}>{typeBlurb(type, t)}</span>
                   </button>
                 ))}
               </div>
@@ -162,13 +177,17 @@ export default function ModelBuilder() {
 
           <div className={`panel ${styles.card}`}>
             <div className="panel-head">
-              <span>{draft.modelId === null ? 'new model' : `model #${draft.modelId}`}</span>
-              <span className="tag tag-json">uncommitted</span>
+              <span>
+                {draft.modelId === null
+                  ? t('modelBuilder.newModelLabel')
+                  : t('modelBuilder.modelIdLabel', { id: draft.modelId })}
+              </span>
+              <span className="tag tag-json">{t('modelBuilder.uncommitted')}</span>
             </div>
 
             <div className={styles.cardBody}>
               <label className={styles.nameLabel}>
-                <span>model name</span>
+                <span>{t('modelBuilder.modelNameLabel')}</span>
                 <input
                   className={styles.modelName}
                   value={draft.name}
@@ -180,10 +199,7 @@ export default function ModelBuilder() {
 
               <div className={styles.rows}>
                 {draft.fields.length === 0 && (
-                  <p className={styles.empty}>
-                    No fields yet. A model with no fields is perfectly legal — it just
-                    stores nothing but ids and timestamps until you add one.
-                  </p>
+                  <p className={styles.empty}>{t('modelBuilder.noFieldsYet')}</p>
                 )}
 
                 {draft.fields.map((field, i) => (
@@ -213,17 +229,27 @@ export default function ModelBuilder() {
 
               {hasLocked && (
                 <p className={styles.lockNote}>
-                  The greyed rows are already in <code>stardust_fields</code>.{' '}
-                  <code>createModel()</code> is get-or-create — it can <em>add</em>{' '}
-                  fields to this model and nothing else. Changing one is a different
-                  call each time: <code>renameField()</code>, <code>retypeField()</code>,{' '}
-                  <code>promoteFieldToFilterable()</code> and <code>deleteField()</code>{' '}
-                  are separate operations, every one of them a migration that runs over
-                  live data rather than an edit that lands instantly. They get their own
-                  section, with the daemons visible while they drain.
+                  {t('modelBuilder.lockNoteP1')}
+                  <code>stardust_fields</code>
+                  {t('modelBuilder.lockNoteP2')}
+                  <code>createModel()</code>
+                  {t('modelBuilder.lockNoteP3')}
+                  <em>{t('modelBuilder.lockNoteAdd')}</em>
+                  {t('modelBuilder.lockNoteP4')}
+                  <code>renameField()</code>
+                  {t('modelBuilder.lockNoteP5')}
+                  <code>retypeField()</code>
+                  {t('modelBuilder.lockNoteP6')}
+                  <code>promoteFieldToFilterable()</code>
+                  {t('modelBuilder.lockNoteP7')}
+                  <code>deleteField()</code>
+                  {t('modelBuilder.lockNoteP8')}
                 </p>
               )}
 
+              {/* `draft.error` simulates the message a real InvalidArgumentException
+                  would carry — the engine has no i18n, so it stays in English in
+                  both locales, on the same fidelity rule as `SimulationNotice`. */}
               {draft.error !== null && (
                 <p className={styles.error} role="alert">
                   {draft.error}
@@ -243,7 +269,7 @@ export default function ModelBuilder() {
                   className="btn"
                   onClick={() => dispatch({ type: 'draft/reset' })}
                 >
-                  new model
+                  {t('modelBuilder.newModelButton')}
                 </button>
               </div>
 
@@ -261,14 +287,12 @@ export default function ModelBuilder() {
           <CodeBlock
             code={snippet}
             lang="php"
-            title="what your application would call"
+            title={t('modelBuilder.sideCodeTitle')}
             copyable
           />
           <p className={styles.aside}>
-            <strong>Filterable is intent, not an index.</strong> It sets one boolean in
-            the registry. No page is provisioned and no slot is reserved — that is a
-            daemon&rsquo;s job, and until it happens a filter on the field is rejected
-            rather than answered slowly.
+            <strong>{t('modelBuilder.asideBold')}</strong>
+            {t('modelBuilder.asideRest')}
           </p>
         </div>
       </div>
@@ -279,7 +303,7 @@ export default function ModelBuilder() {
 
       {committed.length > 0 && (
         <div className={styles.committed}>
-          <h3 className={styles.committedTitle}>Committed to the registry</h3>
+          <h3 className={styles.committedTitle}>{t('modelBuilder.committedTitle')}</h3>
           <div className={styles.models}>
             {committed.map(model => (
               <div key={model.id} className={`panel ${styles.model}`}>
@@ -292,7 +316,7 @@ export default function ModelBuilder() {
                     className={styles.reopen}
                     onClick={() => dispatch({ type: 'draft/loadModel', modelId: model.id })}
                   >
-                    add fields
+                    {t('modelBuilder.reopenButton')}
                   </button>
                 </div>
                 <div className={styles.modelBody}>
@@ -304,30 +328,30 @@ export default function ModelBuilder() {
                         fieldIndexState(world, f.id) === 'live' ? (
                           <span className="tag tag-indexed">
                             <span className="dot" />
-                            indexed
+                            {t('modelBuilder.indexedTag')}
                           </span>
                         ) : (
                           <span className="tag tag-pending">
                             <span className="dot" />
-                            filterable · not indexed yet
+                            {t('modelBuilder.pendingTag')}
                           </span>
                         )
                       ) : (
-                        <span className="tag tag-json">JSON only</span>
+                        <span className="tag tag-json">{t('modelBuilder.jsonOnlyTag')}</span>
                       )}
                     </div>
                   ))}
                   {fieldsOf(world, model.id).length === 0 && (
-                    <p className={styles.dim}>No fields on this model.</p>
+                    <p className={styles.dim}>{t('modelBuilder.noFieldsOnModel')}</p>
                   )}
                 </div>
               </div>
             ))}
           </div>
           <p className={styles.orderNote}>
-            Fields are listed in id order, which is the only order there is —{' '}
-            <code>stardust_fields</code> has no sort column. Whatever order you dragged
-            them into was an argument to one call, and it did not survive the insert.
+            {t('modelBuilder.orderNote1')}
+            <code>stardust_fields</code>
+            {t('modelBuilder.orderNote2')}
           </p>
         </div>
       )}
@@ -362,29 +386,33 @@ function CommitNote({
   summary: CommitSummary;
   schemaVersion: number;
 }) {
+  const t = useTranslations('playground');
   const parts: string[] = [];
 
   parts.push(
     summary.modelInserted
-      ? `Inserted model #${summary.modelId}.`
-      : `Model #${summary.modelId} already existed — returned unchanged.`,
+      ? t('modelBuilder.commit.insertedModel', { id: summary.modelId })
+      : t('modelBuilder.commit.modelExisted', { id: summary.modelId }),
   );
 
   if (summary.fieldsInserted.length > 0) {
-    parts.push(`Inserted ${summary.fieldsInserted.join(', ')}.`);
+    parts.push(t('modelBuilder.commit.insertedFields', { names: summary.fieldsInserted.join(', ') }));
   }
   if (summary.fieldsExisting.length > 0) {
     parts.push(
-      `${summary.fieldsExisting.join(', ')} already existed and ${
-        summary.fieldsExisting.length === 1 ? 'was' : 'were'
-      } left exactly as stored — an existing field's type and filterability are never reconciled against the arguments.`,
+      t(
+        summary.fieldsExisting.length === 1
+          ? 'modelBuilder.commit.fieldsExistedSingular'
+          : 'modelBuilder.commit.fieldsExistedPlural',
+        { names: summary.fieldsExisting.join(', ') },
+      ),
     );
   }
 
   parts.push(
     summary.versionBumped
-      ? `stardust_schema_version bumped to ${schemaVersion}.`
-      : 'Nothing was inserted, so stardust_schema_version was not bumped.',
+      ? t('modelBuilder.commit.versionBumped', { version: schemaVersion })
+      : t('modelBuilder.commit.versionNotBumped'),
   );
 
   return (
