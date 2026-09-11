@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import WorldInspector from './WorldInspector';
 import styles from './TableInspector.module.css';
 
@@ -20,40 +21,44 @@ import styles from './TableInspector.module.css';
  * can read the `CREATE TABLE` without leaving the page.
  */
 export default function TableInspector() {
+  const t = useTranslations('playground');
+
   return (
     <section className={styles.section} id="tables" aria-labelledby="tables-title" tabIndex={-1}>
-      <p className="eyebrow">section b</p>
+      <p className="eyebrow">{t('tableInspector.eyebrow')}</p>
       <h2 id="tables-title" className={styles.title}>
-        What that became in MySQL
+        {t('tableInspector.title')}
       </h2>
       <p className="section-lede">
-        Same names, same columns, same nullability as the schema{' '}
-        <code>bootstrap()</code> creates — open the <code>DDL</code> on any panel and
-        check. What you defined above is in the registry tables. Everything else is
-        empty, and stays empty until something specific makes it otherwise.
+        {t('tableInspector.lede1')}
+        <code>bootstrap()</code>
+        {t('tableInspector.lede2')}
+        <code>DDL</code>
+        {t('tableInspector.lede3')}
       </p>
 
       <div className={styles.beats}>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>Metadata and storage are different tables</h3>
+          <h3 className={styles.beatTitle}>{t('tableInspector.beat1Title')}</h3>
           <p>
-            The registry describes your models; the data plane holds your data. Defining
-            a field wrote to the first and not the second, which is why{' '}
-            <code>stardust_fields</code> has a row saying <code>is_filterable = 1</code>{' '}
-            while <code>stardust_slot_assignments</code> has nothing at all. The gap
-            between those two is not a bug being fixed later — it is a promise waiting
-            for a daemon to keep it.
+            {t('tableInspector.beat1Body1')}
+            <code>stardust_fields</code>
+            {t('tableInspector.beat1Body2')}
+            <code>is_filterable = 1</code>
+            {t('tableInspector.beat1Body3')}
+            <code>stardust_slot_assignments</code>
+            {t('tableInspector.beat1Body4')}
           </p>
         </div>
         <div className={styles.beat}>
           <h3 className={styles.beatTitle}>
-            <code>entry_data.fields</code> is keyed by name
+            <code>entry_data.fields</code>
+            {t('tableInspector.beat2TitleSuffix')}
           </h3>
           <p>
-            Not by field id. That one encoding choice is why renaming a field cannot be
-            an <code>UPDATE</code> on a registry row: every stored payload in the model
-            is on the old key, and all of them have to be rewritten. Worth noticing now,
-            because it is what makes renaming a field under load interesting later.
+            {t('tableInspector.beat2Body1')}
+            <code>UPDATE</code>
+            {t('tableInspector.beat2Body2')}
           </p>
         </div>
       </div>

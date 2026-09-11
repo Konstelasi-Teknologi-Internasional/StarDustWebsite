@@ -2,6 +2,7 @@
 
 import { useId, useState, type ReactNode } from 'react';
 import CodeBlock from '@/components/CodeBlock';
+import { useTranslations } from '@/lib/i18n';
 import styles from './TableView.module.css';
 
 export type Column<Row> = {
@@ -129,6 +130,7 @@ export default function TableView<Row>({
 }: Props<Row>) {
   const [showDdl, setShowDdl] = useState(false);
   const ddlId = useId();
+  const t = useTranslations('playground');
 
   const template = columns.map(c => c.width ?? 'minmax(80px, 1fr)').join(' ');
 
@@ -142,7 +144,7 @@ export default function TableView<Row>({
         <span className={styles.headRight}>
           {truncated && (
             <span className={styles.truncated}>
-              showing the {shown.length} most recent of {rows.length} rows
+              {t('tableView.truncated', { shown: shown.length, total: rows.length })}
             </span>
           )}
           {note && <span className="tag tag-json">{note}</span>}
@@ -155,7 +157,7 @@ export default function TableView<Row>({
               aria-controls={ddlId}
               onClick={() => setShowDdl(v => !v)}
             >
-              {showDdl ? 'hide DDL' : 'DDL'}
+              {showDdl ? t('tableView.hideDdl') : t('tableView.ddl')}
             </button>
           )}
         </span>
@@ -213,9 +215,7 @@ export default function TableView<Row>({
         {rows.length === 0 && <p className={styles.empty}>{empty}</p>}
         {truncated && (
           <p className={styles.truncatedNote}>
-            {rows.length - shown.length} older rows are in the table and not drawn.
-            That is this page&rsquo;s limit, not the database&rsquo;s — a browser will
-            not render tens of thousands of cells, and MySQL does not care.
+            {t('tableView.truncatedNote', { count: rows.length - shown.length })}
           </p>
         )}
       </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import { pageDdl } from '@/lib/sim/ddl';
 import type { SimEntry, SimPage } from '@/lib/sim/types';
 import { slotColumnsInUse, type SimWorld } from '@/lib/sim/world';
@@ -36,6 +37,7 @@ type Props = {
  */
 export default function PageTable({ page, world }: Props) {
   const [showAll, setShowAll] = useState(false);
+  const t = useTranslations('playground');
 
   // Which columns are spoken for. The rule is the core's, not this
   // component's — and it is wider than "live" on purpose, so that a
@@ -56,7 +58,7 @@ export default function PageTable({ page, world }: Props) {
       // column it indexes. The marker used to distinguish the handful that
       // carried an index from the fifty-odd that did not.
       tag: (
-        <span className={styles.indexed} title="indexed on this page">
+        <span className={styles.indexed} title={t('pageTable.indexedTooltip')}>
           {' '}
           ●
         </span>
@@ -77,18 +79,8 @@ export default function PageTable({ page, world }: Props) {
   return (
     <TableView<SimEntry>
       name={page.tableName}
-      note={`${occupied.size} claimed of ${page.indexedColumns.length} indexed`}
-      about={
-        <>
-          The mirror. A filterable field&rsquo;s value is copied out of the JSON
-          payload into whichever slot column the reserver gave it, so a filter can
-          read a real index instead of walking every document. Every column here
-          carries an index — a page is created with exactly the columns it indexes,
-          because one without an index is a column no field is allowed to occupy.
-          The ones no field has claimed yet are the headroom the next promotion of
-          that type will take.
-        </>
-      }
+      note={t('pageTable.note', { claimed: occupied.size, total: page.indexedColumns.length })}
+      about={t('pageTable.about')}
       actions={
         <button
           type="button"
@@ -97,8 +89,8 @@ export default function PageTable({ page, world }: Props) {
           onClick={() => setShowAll(v => !v)}
         >
           {showAll
-            ? `showing all ${page.indexedColumns.length}`
-            : `show all ${page.indexedColumns.length} columns`}
+            ? t('pageTable.showingAll', { count: page.indexedColumns.length })
+            : t('pageTable.showAll', { count: page.indexedColumns.length })}
         </button>
       }
       rows={rows}
@@ -109,7 +101,7 @@ export default function PageTable({ page, world }: Props) {
       // rather than left for the stage that fills it.
       maxRows={TABLE_ROW_LIMIT}
       ddl={pageDdl(page.id, page.indexedColumns)}
-      empty="No mirrored rows yet. A row appears here when an entry is written to a model with at least one field holding a slot on this page."
+      empty={t('pageTable.empty')}
     />
   );
 }
