@@ -79,6 +79,14 @@ import type {
  *     A returning visitor would have been looking at the defect this change
  *     removes, in the section whose whole promise is that these are the real
  *     rows.
+ * 5 — `DaemonActivity.action` went from a rendered English string to a
+ *     translation key plus params, so the locale layer can render it in
+ *     whichever language is live (`DaemonCard` is the one reader). A v4
+ *     snapshot's `action` is still a string, and rendering it as one would
+ *     either crash the key lookup or, worse, print the raw string back —
+ *     `t()` returns its own argument unresolved when a key does not resolve,
+ *     which for an old English sentence looks like a working translation
+ *     that silently stopped translating.
  *
  * `payloadDraft` arrived without a bump, as the first application of the rule
  * above: it is top-level, `seq` already carried `entry` and `sync`, and a v3
@@ -92,7 +100,7 @@ import type {
  * merge is what fixes it, and it repairs those snapshots in place rather than
  * discarding a returning visitor's schema.
  */
-export const SIM_SCHEMA_VERSION = 4;
+export const SIM_SCHEMA_VERSION = 5;
 
 /**
  * The **most** slots of each family a page can carry, 25/15/10/10.

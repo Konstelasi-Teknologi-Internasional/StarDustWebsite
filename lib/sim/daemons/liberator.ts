@@ -79,8 +79,20 @@ export function liberatorTick(world: SimWorld): SimWorld {
         tick: world.clock.tick,
         action:
           reclaimed > 0
-            ? `nullified ${nullified}, returned ${reclaimed} slot${reclaimed === 1 ? '' : 's'} to free`
-            : `nullified ${nullified} across ${batch.length} tombstoned slot${batch.length === 1 ? '' : 's'}`,
+            ? {
+                key:
+                  reclaimed === 1
+                    ? 'daemonRoom.activity.liberatorReclaimedOne'
+                    : 'daemonRoom.activity.liberatorReclaimedMany',
+                params: { nullified, reclaimed },
+              }
+            : {
+                key:
+                  batch.length === 1
+                    ? 'daemonRoom.activity.liberatorSweptOne'
+                    : 'daemonRoom.activity.liberatorSweptMany',
+                params: { nullified, batchSize: batch.length },
+              },
       },
     },
   };

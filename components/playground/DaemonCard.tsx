@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import type { DaemonName } from '@/lib/sim/clock';
 import { usePlayground } from './PlaygroundContext';
 import styles from './DaemonCard.module.css';
@@ -31,6 +32,7 @@ type Props = {
 export default function DaemonCard({ name, kind, role, children }: Props) {
   const { world, dispatch } = usePlayground();
   const { clock } = world;
+  const t = useTranslations('playground');
 
   const paused = clock.paused[name];
   const period = clock.periods[name];
@@ -67,14 +69,17 @@ export default function DaemonCard({ name, kind, role, children }: Props) {
             aria-pressed={paused}
             onClick={() => dispatch({ type: 'daemon/togglePaused', daemon: name })}
           >
-            {paused ? 'start' : 'stop'}
+            {paused ? t('daemonRoom.startButton') : t('daemonRoom.stopButton')}
           </button>
           <span className={styles.period}>
-            polls every {period} ticks
+            {t('daemonRoom.pollsEvery', { period })}
             {paused ? (
-              <em className={styles.stopped}>stopped — not polling</em>
+              <em className={styles.stopped}>{t('daemonRoom.stoppedNotPolling')}</em>
             ) : (
-              <em>next in {ticksUntil}</em>
+              // Not paused, so `ticksUntil` is `period - (tick % period)` — a
+              // number. The type stays nullable because it is computed once
+              // for both branches above.
+              <em>{t('daemonRoom.nextIn', { ticks: ticksUntil as number })}</em>
             )}
           </span>
         </div>
@@ -83,10 +88,11 @@ export default function DaemonCard({ name, kind, role, children }: Props) {
 
         <p className={styles.last}>
           {activity === undefined ? (
-            <span className={styles.dim}>has not polled yet</span>
+            <span className={styles.dim}>{t('daemonRoom.notPolledYet')}</span>
           ) : (
             <>
-              <span className={styles.dim}>t{activity.tick}</span> {activity.action}
+              <span className={styles.dim}>t{activity.tick}</span>{' '}
+              {t(activity.action.key, activity.action.params)}
             </>
           )}
         </p>

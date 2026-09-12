@@ -68,11 +68,25 @@ export interface WorkerClaim {
   note?: 'reserved_and_rolled_back';
 }
 
+/**
+ * A translation key into `playground.json`'s `daemonRoom.activity` namespace,
+ * plus the params it interpolates.
+ *
+ * A key-and-params pair rather than a rendered string, for the same reason
+ * `notify.ts`'s `Say` type is: this file is pure and has no locale to ask, so
+ * rendering has to wait for a component that does. `DaemonCard` is the only
+ * reader, so it is the only place that calls `useTranslations()` for it.
+ */
+export interface DaemonActivityMessage {
+  key: string;
+  params?: Record<string, string | number>;
+}
+
 export interface DaemonActivity {
   /** The tick this describes. Compared against `clock.tick` for the pulse. */
   tick: number;
   /** One line for the card. Written by the daemon, not by the component. */
-  action: string;
+  action: DaemonActivityMessage;
   /** Reconciler only — what each of the three workers claimed. */
   workers?: WorkerClaim[];
 }

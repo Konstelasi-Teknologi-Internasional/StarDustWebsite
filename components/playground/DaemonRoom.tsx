@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import { readPendingDemand, reportCapacity } from '@/lib/sim/capacity';
 import { RECONCILER_WORKERS } from '@/lib/sim/daemons/reconciler';
 import { sweepProgress, tombstonedBatch } from '@/lib/sim/daemons/liberator';
@@ -28,37 +29,27 @@ import styles from './DaemonRoom.module.css';
  */
 export default function DaemonRoom() {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   return (
     <section className={styles.section} id="daemons" aria-labelledby="daemons-title" tabIndex={-1}>
-      <p className="eyebrow">section d</p>
+      <p className="eyebrow">{t('daemonRoom.eyebrow')}</p>
       <h2 id="daemons-title" className={styles.title}>
-        The daemon control room
+        {t('daemonRoom.heading')}
       </h2>
-      <p className="section-lede">
-        Four processes on four different poll periods, none of which has ever heard
-        of the others. Stop one and watch what stops with it — then promote a field
-        with the Watcher down and see the registry and the index disagree, out loud,
-        until you let it finish.
-      </p>
+      <p className="section-lede">{t('daemonRoom.lede')}</p>
 
       <div className={styles.beats}>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>Provisioning capacity is not claiming it</h3>
-          <p>
-            The Watcher adds a page and stops. The field that caused it is still
-            unmapped when that tick ends, and a different daemon claims the slot on
-            its own schedule. That gap is the design, not a lag — and it is why the
-            two of them can be started, stopped and scaled independently.
-          </p>
+          <h3 className={styles.beatTitle}>{t('daemonRoom.beat1Title')}</h3>
+          <p>{t('daemonRoom.beat1Body')}</p>
         </div>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>Every arrow is a connection to MySQL</h3>
+          <h3 className={styles.beatTitle}>{t('daemonRoom.beat2Title')}</h3>
           <p>
-            There is no broker, no queue server and no daemon-to-daemon call
-            anywhere in this design. The Liberator handing a slot back as{' '}
-            <code>free</code> is what stops the Watcher provisioning another page,
-            and neither knows the other is running.
+            {t('daemonRoom.beat2Body1')}
+            <code>free</code>
+            {t('daemonRoom.beat2Body2')}
           </p>
         </div>
       </div>
@@ -66,52 +57,28 @@ export default function DaemonRoom() {
       <SharedState />
 
       <div className={styles.cards}>
-        <DaemonCard
-          name="watcher"
-          kind="singleton"
-          role="Provisions indexed pages before capacity runs out — and the moment a field is waiting on a family with nothing claimable, whatever the threshold says."
-        >
+        <DaemonCard name="watcher" kind="singleton" role={t('daemonRoom.watcherRole')}>
           <WatcherBody />
         </DaemonCard>
 
-        <DaemonCard
-          name="reconciler"
-          kind="multi-worker"
-          role="Drains work sources round-robin under SKIP LOCKED. Horizontal scale is literally more processes; three of them run here."
-        >
+        <DaemonCard name="reconciler" kind="multi-worker" role={t('daemonRoom.reconcilerRole')}>
           <ReconcilerBody />
         </DaemonCard>
 
-        <DaemonCard
-          name="liberator"
-          kind="singleton"
-          role="Sweeps a tombstoned slot's residue out chunk by chunk, then hands the column back as free so it can be reused."
-        >
+        <DaemonCard name="liberator" kind="singleton" role={t('daemonRoom.liberatorRole')}>
           <LiberatorBody />
         </DaemonCard>
 
-        <DaemonCard
-          name="chronicler"
-          kind="multi-worker"
-          role="Claims export jobs and streams a CSV or JSON artifact straight to disk, cursor-paginated and never buffered."
-        >
+        <DaemonCard name="chronicler" kind="multi-worker" role={t('daemonRoom.chroniclerRole')}>
           <ChroniclerBody />
         </DaemonCard>
       </div>
 
       <p className={styles.caveat}>
-        <strong>&ldquo;Capacity&rdquo; means an indexed free slot of the field&rsquo;s own
-        type family</strong> — not a free slot. A page is created with exactly the
-        columns it indexes, four of every type family, because a column without an
-        index is one no filterable field may occupy: a page of sixty columns indexing
-        the two that were asked for was fifty-eight columns of nothing. So the first
-        promotion on a fresh schema still takes the slow path — there is no page at
-        all, the reservation is deferred, the Watcher wakes and the Reconciler picks
-        it up — but the next three of that type take the fast path, reserved inside
-        the transaction <code>promoteFieldToFilterable()</code> itself runs, with the
-        Watcher never stirring. Promote one field below, let the chain finish, then
-        promote another of the same type and watch none of it happen. The fifth is
-        slow again: the family&rsquo;s headroom is spent, and a page is a page.
+        <strong>{t('daemonRoom.caveatBold')}</strong>
+        {t('daemonRoom.caveatBody1')}
+        <code>promoteFieldToFilterable()</code>
+        {t('daemonRoom.caveatBody2')}
       </p>
 
       <div className={styles.split}>
@@ -123,9 +90,9 @@ export default function DaemonRoom() {
           // the caller did; this one is the interleaved stream, which is the
           // whole point of the section.
           height="480px"
-          title="four daemons, one stream"
-          note="NDJSON · stdout"
-          empty="Nothing has polled yet. Press run on the clock above, or step it one tick at a time — the daemons emit only when they actually do something, so an idle tick is silent."
+          title={t('daemonRoom.title')}
+          note={t('daemonRoom.logNote')}
+          empty={t('daemonRoom.logEmpty')}
         />
       </div>
     </section>
@@ -147,6 +114,7 @@ function WatcherBody() {
   const { world } = usePlayground();
   const demand = readPendingDemand(world);
   const snapshot = reportCapacity(world);
+  const t = useTranslations('playground');
 
   const free = world.slots.filter(s => s.status === 'free').length;
   const total = world.slots.length;
@@ -155,10 +123,10 @@ function WatcherBody() {
   return (
     <div className={styles.body}>
       <div className={styles.gaugeTop}>
-        <span>free slots</span>
+        <span>{t('daemonRoom.freeSlots')}</span>
         <strong>
           {free}
-          <em> of {total}</em>
+          <em> {t('daemonRoom.ofTotal', { total })}</em>
         </strong>
       </div>
       <div className={styles.track}>
@@ -166,14 +134,17 @@ function WatcherBody() {
       </div>
       <p className={styles.sub}>
         {world.pages.length === 0
-          ? 'no page provisioned — bootstrap creates none, and one appears only when something needs it'
-          : `${total} slot${total === 1 ? '' : 's'} across ${world.pages.length} page${world.pages.length === 1 ? '' : 's'}`}
+          ? t('daemonRoom.noPageProvisioned')
+          : t(total === 1 ? 'daemonRoom.slotsAcrossPagesOne' : 'daemonRoom.slotsAcrossPagesMany', {
+              total,
+              pages: world.pages.length,
+            })}
       </p>
 
       <div className={styles.demand}>
-        <span className={styles.demandLabel}>pending demand</span>
+        <span className={styles.demandLabel}>{t('daemonRoom.pendingDemand')}</span>
         {demand.totalWaiters === 0 ? (
-          <span className={styles.none}>none — every filterable field holds a slot</span>
+          <span className={styles.none}>{t('daemonRoom.noDemand')}</span>
         ) : (
           <div className={styles.chips}>
             {demand.families.map(family => (
@@ -183,8 +154,10 @@ function WatcherBody() {
                     handed — and a zero here is the starvation trigger, not the
                     threshold, so it provisions whatever the ratio says. */}
                 <em>
-                  {demand.waiters[family].length} waiting · {snapshot.indexedFree[family]}{' '}
-                  claimable
+                  {t('daemonRoom.demandChip', {
+                    waiting: demand.waiters[family].length,
+                    claimable: snapshot.indexedFree[family],
+                  })}
                 </em>
               </span>
             ))}
@@ -198,11 +171,12 @@ function WatcherBody() {
 function ReconcilerBody() {
   const { world } = usePlayground();
   const claims = world.daemonActivity.reconciler?.workers ?? [];
+  const t = useTranslations('playground');
 
   return (
     <div className={styles.body}>
       <p className={styles.sub}>
-        stardust_sync_queue · {world.syncQueue.length} pending
+        {t('daemonRoom.syncQueuePending', { count: world.syncQueue.length })}
       </p>
 
       <div className={styles.workers}>
@@ -218,7 +192,7 @@ function ReconcilerBody() {
             >
               <span className={styles.workerName}>{worker}</span>
               {busy.length === 0 ? (
-                <em className={styles.none}>idle</em>
+                <em className={styles.none}>{t('daemonRoom.workerIdle')}</em>
               ) : (
                 busy.map((claim, n) => (
                   <em
@@ -227,15 +201,22 @@ function ReconcilerBody() {
                   >
                     {claim.source}
                     {claim.outcome === 'capacity_wait'
-                      ? ' · capacity_wait'
+                      ? t('daemonRoom.claimCapacityWait')
                       : claim.note === 'reserved_and_rolled_back'
                         ? // The chunk claimed rows and then rolled back whole,
                           // so saying "500 rows" would describe a drain that
                           // did not happen. What it did was reserve a slot.
-                          ` · claimed ${claim.claimed}, rolled back, reserved a slot`
+                          t('daemonRoom.claimRolledBack', { claimed: claim.claimed })
                         : claim.firstId === null
-                          ? ` · ${claim.claimed}`
-                          : ` · ${claim.claimed} rows, ids ${claim.firstId}–${claim.lastId}`}
+                          ? t('daemonRoom.claimBare', { claimed: claim.claimed })
+                          : t('daemonRoom.claimRows', {
+                              claimed: claim.claimed,
+                              firstId: claim.firstId,
+                              // `lastId` is not narrowed by the `firstId`
+                              // check above, but a claim with a first id
+                              // always has a last one too.
+                              lastId: claim.lastId as number,
+                            })}
                   </em>
                 ))
               )}
@@ -245,10 +226,9 @@ function ReconcilerBody() {
       </div>
 
       <p className={styles.footnote}>
-        Nothing assigns work to a worker. Each claims the next rows nobody else is
-        holding — that is all <code>SKIP LOCKED</code> does, and it is the whole
-        coordination mechanism. A chunk is 500 rows, so one 600-row seed keeps two
-        workers busy and leaves the third with nothing to take.
+        {t('daemonRoom.reconcilerFootnote1')}
+        <code>SKIP LOCKED</code>
+        {t('daemonRoom.reconcilerFootnote2')}
       </p>
     </div>
   );
@@ -257,14 +237,12 @@ function ReconcilerBody() {
 function LiberatorBody() {
   const { world } = usePlayground();
   const batch = tombstonedBatch(world);
+  const t = useTranslations('playground');
 
   return (
     <div className={styles.body}>
       {batch.length === 0 ? (
-        <p className={styles.none}>
-          nothing tombstoned — demote a field below and a column full of values
-          nobody will read again appears here
-        </p>
+        <p className={styles.none}>{t('daemonRoom.liberatorEmpty')}</p>
       ) : (
         batch.slice(0, 4).map(slot => {
           // Counted off the page table, the same population the sweep walks.
@@ -284,9 +262,9 @@ function LiberatorBody() {
         })
       )}
       <p className={styles.footnote}>
-        The sweep never joins <code>stardust_fields</code>. It keys on the page, the
-        column and a cursor, which is what lets it reclaim a slot whose field row is
-        already gone.
+        {t('daemonRoom.liberatorFootnote1')}
+        <code>stardust_fields</code>
+        {t('daemonRoom.liberatorFootnote2')}
       </p>
     </div>
   );
@@ -294,22 +272,15 @@ function LiberatorBody() {
 
 function ChroniclerBody() {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   return (
     <div className={styles.body}>
       <p className={styles.sub}>
-        stardust_export_jobs · {world.exportJobs.length} rows
+        {t('daemonRoom.exportJobsCount', { count: world.exportJobs.length })}
       </p>
-      <p className={styles.none}>
-        no jobs to claim
-      </p>
-      <p className={styles.footnote}>
-        Its poll period and stop button are real and it is genuinely being asked to
-        run — there is simply nothing submitting exports yet. A Chronicler with an
-        empty job table claims nothing and emits nothing, which is exactly what this
-        card is showing. Submitting one is the operations section, alongside bulk
-        import and dead-letter replay.
-      </p>
+      <p className={styles.none}>{t('daemonRoom.chroniclerEmpty')}</p>
+      <p className={styles.footnote}>{t('daemonRoom.chroniclerFootnote')}</p>
     </div>
   );
 }

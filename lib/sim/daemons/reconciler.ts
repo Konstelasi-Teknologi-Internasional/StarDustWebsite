@@ -144,8 +144,11 @@ export function reconcilerTick(world: SimWorld): SimWorld {
         tick: world.clock.tick,
         action:
           busy.length === 0
-            ? 'nothing to claim'
-            : `${busy.length} of ${RECONCILER_WORKERS} workers claimed work`,
+            ? { key: 'daemonRoom.activity.reconcilerIdle' }
+            : {
+                key: 'daemonRoom.activity.reconcilerBusy',
+                params: { busy: busy.length, total: RECONCILER_WORKERS },
+              },
         workers: state.claims,
       },
     },

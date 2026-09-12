@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import { usePlayground } from './PlaygroundContext';
 import styles from './SharedState.module.css';
 
@@ -17,6 +18,7 @@ import styles from './SharedState.module.css';
  */
 export default function SharedState() {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   const freeSlots = world.slots.filter(s => s.status === 'free').length;
   const tombstoned = world.slots.filter(s => s.status === 'tombstoned').length;
@@ -26,32 +28,34 @@ export default function SharedState() {
     {
       table: 'stardust_sync_queue',
       value: world.syncQueue.length,
-      unit: world.syncQueue.length === 1 ? 'row pending' : 'rows pending',
-      note: 'backfill debt — one row per write that outran its index',
+      unit: t(world.syncQueue.length === 1 ? 'sharedState.syncQueueRowOne' : 'sharedState.syncQueueRowMany'),
+      note: t('sharedState.syncQueueNote'),
     },
     {
       table: 'stardust_pages',
       value: world.pages.length,
-      unit: world.pages.length === 1 ? 'page' : 'pages',
-      note: `${freeSlots} free slot${freeSlots === 1 ? '' : 's'} across them`,
+      unit: t(world.pages.length === 1 ? 'sharedState.pageOne' : 'sharedState.pageMany'),
+      note: t(freeSlots === 1 ? 'sharedState.freeSlotsAcrossOne' : 'sharedState.freeSlotsAcrossMany', {
+        count: freeSlots,
+      }),
     },
     {
       table: 'stardust_slot_assignments',
       value: tombstoned,
-      unit: tombstoned === 1 ? 'tombstoned' : 'tombstoned',
-      note: 'columns still holding residue nobody will read',
+      unit: t('sharedState.tombstonedUnit'),
+      note: t('sharedState.tombstonedNote'),
     },
     {
       table: 'backfill_checkpoints',
       value: running,
-      unit: running === 1 ? 'running' : 'running',
-      note: 'lifecycles a Reconciler worker can claim',
+      unit: t('sharedState.runningUnit'),
+      note: t('sharedState.runningNote'),
     },
     {
       table: 'stardust_reconciler_dlq',
       value: world.dlq.length,
-      unit: world.dlq.length === 1 ? 'quarantined' : 'quarantined',
-      note: 'rows that cannot succeed, kept rather than dropped',
+      unit: t('sharedState.quarantinedUnit'),
+      note: t('sharedState.quarantinedNote'),
     },
   ];
 
@@ -59,9 +63,7 @@ export default function SharedState() {
     <div className={`panel ${styles.core}`}>
       <div className="panel-head">
         <span>MySQL 8.0.13+</span>
-        <span className="tag tag-json">
-          sole coordination point — no broker, no daemon-to-daemon RPC
-        </span>
+        <span className="tag tag-json">{t('sharedState.groupLabel')}</span>
       </div>
 
       <div className={styles.grid}>

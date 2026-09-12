@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import type { SimField } from '@/lib/sim/types';
 import { runningCheckpointForField } from '@/lib/sim/retype';
 import { fieldIndexState, fieldsOf, liveSlotForField } from '@/lib/sim/world';
@@ -28,14 +29,12 @@ import styles from './FieldIndexReadout.module.css';
  */
 export default function FieldIndexReadout() {
   const { world, dispatch } = usePlayground();
+  const t = useTranslations('playground');
 
   if (world.models.length === 0) {
     return (
       <div className={`panel ${styles.empty}`}>
-        <p>
-          Define a model in section A first. This panel reads the registry, and
-          there is nothing in it yet.
-        </p>
+        <p>{t('fieldIndexReadout.empty')}</p>
       </div>
     );
   }
@@ -48,7 +47,7 @@ export default function FieldIndexReadout() {
             <span>
               describeModel({world.tenantId}, {model.id}) → {model.name}
             </span>
-            <span className="tag tag-json">registry intent vs. live index</span>
+            <span className="tag tag-json">{t('fieldIndexReadout.headTag')}</span>
           </div>
 
           <div className={styles.rows}>
@@ -70,6 +69,8 @@ export default function FieldIndexReadout() {
           — four screens from the button that caused it, with no context and no
           way to tell it apart from something this panel did. Section F carries
           the same filter for the other four. */}
+      {/* Simulates the message a real RetypeInProgressException would carry —
+          untranslated in both locales, same fidelity rule as `draft.error`. */}
       {world.lastLifecycle?.error != null &&
         (world.lastLifecycle.action === 'promote' ||
           world.lastLifecycle.action === 'demote') && (
@@ -91,6 +92,7 @@ function FieldRow({
   onDemote: () => void;
 }) {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   const state = fieldIndexState(world, field.id);
   const slot = liveSlotForField(world, field.id);
@@ -116,13 +118,13 @@ function FieldRow({
           disabled={checkpoint !== undefined}
           title={
             checkpoint !== undefined
-              ? 'A retype is already in flight for this field. The engine refuses an overlapping lifecycle rather than queueing it.'
+              ? t('fieldIndexReadout.checkpointInFlightTitle')
               : field.isFilterable
-                ? 'demoteFieldFromFilterable() — registry-only, and the slot is tombstoned for the Liberator'
-                : 'promoteFieldToFilterable() — returns immediately; a daemon finishes it'
+                ? t('fieldIndexReadout.demoteTitle')
+                : t('fieldIndexReadout.promoteTitle')
           }
         >
-          {field.isFilterable ? 'demote' : 'promote'}
+          {field.isFilterable ? t('fieldIndexReadout.demote') : t('fieldIndexReadout.promote')}
         </button>
       </div>
 
@@ -131,26 +133,22 @@ function FieldRow({
           label="isFilterable"
           value={field.isFilterable}
           tone={field.isFilterable ? 'accent' : 'json'}
-          note="registry intent — set the moment the call returned"
+          note={t('fieldIndexReadout.filterableNote')}
         />
         <Flag
           label="isIndexed"
           value={indexed}
           tone={indexed ? 'indexed' : 'pending'}
-          note={
-            indexed
-              ? 'a filter reads a real index right now'
-              : 'no live slot a filter could use yet'
-          }
+          note={t(indexed ? 'fieldIndexReadout.indexedNoteTrue' : 'fieldIndexReadout.indexedNoteFalse')}
         />
       </div>
 
       <div className={styles.slotRow}>
-        <span className={styles.slotLabel}>slot</span>
+        <span className={styles.slotLabel}>{t('fieldIndexReadout.slotLabel')}</span>
         {slot === undefined ? (
           <span className="tag tag-error">
             <span className="dot" />
-            none reserved
+            {t('fieldIndexReadout.noneReserved')}
           </span>
         ) : (
           <span className={`tag ${state === 'live' ? 'tag-indexed' : 'tag-pending'}`}>
@@ -159,13 +157,15 @@ function FieldRow({
           </span>
         )}
         <span className={styles.verdict}>
-          {state === 'live'
-            ? 'a filter on this field is compiled against the slot column'
-            : state === 'building'
-              ? 'a filter is rejected — FieldNotFilterableException, because the index is only half built'
-              : field.isFilterable
-                ? 'a filter is rejected — FieldNotFilterableException, no slot exists to read'
-                : 'JSON-only by design. A filter is rejected until you promote it.'}
+          {t(
+            state === 'live'
+              ? 'fieldIndexReadout.verdictLive'
+              : state === 'building'
+                ? 'fieldIndexReadout.verdictBuilding'
+                : field.isFilterable
+                  ? 'fieldIndexReadout.verdictNoSlot'
+                  : 'fieldIndexReadout.verdictJsonOnly',
+          )}
         </span>
       </div>
 
@@ -173,7 +173,7 @@ function FieldRow({
         <CheckpointBar
           checkpoint={checkpoint}
           total={entriesInModel}
-          totalNote={`of ${entriesInModel} rows in entry_data for this model — the table stores no total, so this is counted from the partition being drained`}
+          totalNote={t('fieldIndexReadout.checkpointTotalNote', { total: entriesInModel })}
         />
       )}
     </div>

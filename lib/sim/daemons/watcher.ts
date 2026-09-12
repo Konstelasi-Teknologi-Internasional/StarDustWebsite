@@ -125,9 +125,12 @@ export function watcherTick(world: SimWorld): SimWorld {
         action:
           pageId === null
             ? demand.totalWaiters > 0
-              ? `${demand.totalWaiters} waiting, capacity available — nothing to provision`
-              : 'capacity healthy, no demand'
-            : `provisioned page ${pageId} (${plan.trigger}), indexed ${plan.indexedColumns.length}`,
+              ? { key: 'daemonRoom.activity.watcherWaiting', params: { waiters: demand.totalWaiters } }
+              : { key: 'daemonRoom.activity.watcherHealthy' }
+            : {
+                key: 'daemonRoom.activity.watcherProvisioned',
+                params: { pageId, trigger: plan.trigger, indexed: plan.indexedColumns.length },
+              },
       },
     },
   };
