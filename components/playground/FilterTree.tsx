@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import type { FilterNode, LeafNode, LeafOperator } from '@/lib/sim/filter/ast';
 import { isLeaf, isRangeOperator, isSetOperator, isPresenceOperator } from '@/lib/sim/filter/ast';
 import { formatBuilderValue, operatorsFor, pathKey, type NodePath } from '@/lib/sim/query';
@@ -41,6 +42,7 @@ function GroupRow({
   path: NodePath;
 }) {
   const { dispatch } = usePlayground();
+  const t = useTranslations('playground');
 
   return (
     <div className={styles.group}>
@@ -51,16 +53,14 @@ function GroupRow({
           onClick={() => dispatch({ type: 'query/toggleGroup', path })}
           title={
             node.op === 'and'
-              ? 'Switch to OR. An OR anywhere in the tree moves the whole query to the EXISTS strategy.'
-              : 'Switch back to AND. A pure-AND tree compiles to one INNER JOIN per page.'
+              ? t('filterTree.switchToOrTitle')
+              : t('filterTree.switchToAndTitle')
           }
         >
           {node.op}
         </button>
         <span className={styles.groupNote}>
-          {node.op === 'and'
-            ? 'every condition must hold — one join per page, no fan-out'
-            : 'any condition may hold — compiles to EXISTS subqueries'}
+          {node.op === 'and' ? t('filterTree.andNote') : t('filterTree.orNote')}
         </span>
         <NodeActions path={path} />
       </div>
@@ -75,14 +75,13 @@ function GroupRow({
 }
 
 function NotRow({ node, path }: { node: Extract<FilterNode, { op: 'not' }>; path: NodePath }) {
+  const t = useTranslations('playground');
+
   return (
     <div className={`${styles.group} ${styles.groupNot}`}>
       <div className={styles.groupHead}>
         <span className={`${styles.op} ${styles.opNot}`}>not</span>
-        <span className={styles.groupNote}>
-          negated — and a negation over a NULL slot is still not a match, because
-          SQL says UNKNOWN rather than true
-        </span>
+        <span className={styles.groupNote}>{t('filterTree.notNote')}</span>
         <NodeActions path={path} />
       </div>
       <div className={styles.children}>
@@ -94,6 +93,7 @@ function NotRow({ node, path }: { node: Extract<FilterNode, { op: 'not' }>; path
 
 function LeafRow({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
   const { world, dispatch } = usePlayground();
+  const t = useTranslations('playground');
   const modelId = world.queryDraft.modelId;
 
   // Derived from the registry on every render, never snapshotted into the
@@ -108,7 +108,7 @@ function LeafRow({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
       <select
         className={styles.select}
         value={leaf.field.name}
-        aria-label="field"
+        aria-label={t('filterTree.fieldAriaLabel')}
         onChange={e => dispatch({ type: 'query/setField', path, fieldName: e.target.value })}
       >
         {/* A leaf naming a field that is no longer registered keeps its own
@@ -126,7 +126,7 @@ function LeafRow({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
       <select
         className={styles.select}
         value={leaf.op}
-        aria-label="operator"
+        aria-label={t('filterTree.operatorAriaLabel')}
         onChange={e =>
           dispatch({ type: 'query/setOperator', path, op: e.target.value as LeafOperator })
         }
@@ -149,11 +149,14 @@ function LeafRow({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
 
 function ValueInput({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
   const { dispatch } = usePlayground();
+  const t = useTranslations('playground');
 
   if (isPresenceOperator(leaf.op)) {
     return (
       <span className={styles.noValue}>
-        no value — <code>{leaf.op}</code> carries none, and sending one is{' '}
+        {t('filterTree.noValue1')}
+        <code>{leaf.op}</code>
+        {t('filterTree.noValue2')}
         <code>value_unexpected</code>
       </span>
     );
@@ -165,14 +168,14 @@ function ValueInput({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
       <span className={styles.pair}>
         <input
           className={styles.input}
-          aria-label="lower bound"
+          aria-label={t('filterTree.lowerBoundAriaLabel')}
           value={String(pair[0] ?? '')}
           onChange={e => dispatch({ type: 'query/setValue', path, text: e.target.value, index: 0 })}
         />
-        <span className={styles.and}>and</span>
+        <span className={styles.and}>{t('filterTree.and')}</span>
         <input
           className={styles.input}
-          aria-label="upper bound"
+          aria-label={t('filterTree.upperBoundAriaLabel')}
           value={String(pair[1] ?? '')}
           onChange={e => dispatch({ type: 'query/setValue', path, text: e.target.value, index: 1 })}
         />
@@ -183,8 +186,10 @@ function ValueInput({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
   return (
     <input
       className={styles.input}
-      aria-label="value"
-      placeholder={isSetOperator(leaf.op) ? 'comma, separated, values' : 'value'}
+      aria-label={t('filterTree.valueAriaLabel')}
+      placeholder={
+        isSetOperator(leaf.op) ? t('filterTree.setPlaceholder') : t('filterTree.valuePlaceholder')
+      }
       value={formatBuilderValue(leaf.value)}
       onChange={e => dispatch({ type: 'query/setValue', path, text: e.target.value })}
     />
@@ -202,32 +207,34 @@ function ValueInput({ leaf, path }: { leaf: LeafNode; path: NodePath }) {
 function IndexChip({ field }: { field: SimField }) {
   const { world } = usePlayground();
   const state = fieldIndexState(world, field.id);
+  const t = useTranslations('playground');
 
   if (state === 'live') {
     return (
       <span className={`tag tag-indexed ${styles.chip}`}>
         <span className="dot" />
-        indexed
+        {t('filterTree.indexedTag')}
       </span>
     );
   }
   return (
     <span className={`tag ${state === 'building' ? 'tag-pending' : 'tag-error'} ${styles.chip}`}>
       <span className="dot" />
-      {state === 'building' ? 'backfilling' : 'no slot'}
+      {t(state === 'building' ? 'filterTree.backfillingTag' : 'filterTree.noSlotTag')}
     </span>
   );
 }
 
 function NodeActions({ path }: { path: NodePath }) {
   const { dispatch } = usePlayground();
+  const t = useTranslations('playground');
 
   return (
     <span className={styles.actions}>
       <button
         type="button"
         className={styles.iconBtn}
-        title="Wrap this in an OR group"
+        title={t('filterTree.wrapOrTitle')}
         onClick={() => dispatch({ type: 'query/wrap', path, kind: 'or' })}
       >
         or
@@ -235,7 +242,7 @@ function NodeActions({ path }: { path: NodePath }) {
       <button
         type="button"
         className={styles.iconBtn}
-        title="Negate this — NOT (…)"
+        title={t('filterTree.negateTitle')}
         onClick={() => dispatch({ type: 'query/wrap', path, kind: 'not' })}
       >
         not
@@ -243,8 +250,8 @@ function NodeActions({ path }: { path: NodePath }) {
       <button
         type="button"
         className={styles.iconBtn}
-        title="Remove"
-        aria-label="remove this condition"
+        title={t('filterTree.removeTitle')}
+        aria-label={t('filterTree.removeAriaLabel')}
         onClick={() => dispatch({ type: 'query/removeNode', path })}
       >
         ×

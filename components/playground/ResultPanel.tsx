@@ -1,5 +1,6 @@
 'use client';
 
+import { useTranslations } from '@/lib/i18n';
 import { decodeCursor } from '@/lib/sim/search/cursor';
 import { usePlayground } from './PlaygroundContext';
 import TableView, { type Column } from './TableView';
@@ -19,18 +20,19 @@ export default function ResultPanel() {
   const { world, dispatch } = usePlayground();
   const draft = world.queryDraft;
   const run = draft.lastRun;
+  const t = useTranslations('playground');
 
   if (run === null) {
     return (
       <div className={`panel ${styles.panel}`}>
         <div className="panel-head">
           <span>result</span>
-          <span className="tag tag-json">nothing has run yet</span>
+          <span className="tag tag-json">{t('resultPanel.nothingRunTag')}</span>
         </div>
         <p className={styles.resultEmpty}>
-          Build a condition and press <strong>run</strong>. With no conditions at all
-          the filter key is omitted, which is match-all — a perfectly good query, and
-          the one every listing screen starts as.
+          {t('resultPanel.nothingRunBody1')}
+          <strong>{t('resultPanel.nothingRunRun')}</strong>
+          {t('resultPanel.nothingRunBody2')}
         </p>
       </div>
     );
@@ -45,18 +47,16 @@ export default function ResultPanel() {
     return (
       <div className={`panel ${styles.panel}`}>
         <div className="panel-head">
-          <span>result · nothing</span>
+          <span>{t('resultPanel.darkHeader')}</span>
           <span className="tag tag-pending">
             <span className="dot" />
-            model not visible to reads
+            {t('resultPanel.darkTag')}
           </span>
         </div>
         <p className={styles.resultEmpty}>
-          Not an error — <strong>nothing</strong>. This model is being deleted, and a
-          read against it returns exactly what a read against a model id that never
-          existed returns. There is no exception to catch and no rejection to log,
-          which is deliberate: severance is total, and a consumer polling a deleted
-          model should see it empty rather than learn that it once existed.
+          {t('resultPanel.darkBody1')}
+          <strong>{t('resultPanel.darkNothing')}</strong>
+          {t('resultPanel.darkBody2')}
         </p>
       </div>
     );
@@ -67,7 +67,7 @@ export default function ResultPanel() {
     return (
       <div className={`panel ${styles.panel} ${styles.rejected}`}>
         <div className="panel-head">
-          <span>result · refused at pre-flight</span>
+          <span>{t('resultPanel.refusedHeader')}</span>
           <span className="tag tag-error">
             <span className="dot" />
             {rejection.errorCode}
@@ -77,12 +77,15 @@ export default function ResultPanel() {
           <p className={styles.exception}>
             <code>{rejection.exception}</code>
           </p>
+          {/* Simulates the message a real pre-flight rejection would carry —
+              untranslated in both locales, same fidelity rule as `draft.error`. */}
           <p className={styles.rejectMessage}>{rejection.message}</p>
           <p className={styles.hint}>
-            Nothing was executed. The refusal came from the pre-flight pipeline before
-            any SQL was built, which is why there is no plan below — and it is logged
-            as <code>{rejection.event}</code> with{' '}
-            <code>reason={rejection.reason}</code> so an operator can count it.
+            {t('resultPanel.refusedHint1')}
+            <code>{rejection.event}</code>
+            {t('resultPanel.refusedHint2')}
+            <code>reason={rejection.reason}</code>
+            {t('resultPanel.refusedHint3')}
           </p>
         </div>
       </div>
@@ -93,16 +96,13 @@ export default function ResultPanel() {
     return (
       <div className={`panel ${styles.panel} ${styles.rejected}`}>
         <div className="panel-head">
-          <span>result · rejected by the decoder</span>
+          <span>{t('resultPanel.decoderRejectedHeader')}</span>
           <span className="tag tag-error">
             <span className="dot" />
             {run.wireError?.errorCode}
           </span>
         </div>
-        <p className={styles.rejectBody}>
-          The envelope never became a filter, so nothing reached the registry. The
-          pointer above the editor names the node.
-        </p>
+        <p className={styles.rejectBody}>{t('resultPanel.decoderRejectedBody')}</p>
       </div>
     );
   }
@@ -123,39 +123,38 @@ export default function ResultPanel() {
   return (
     <div className={`panel ${styles.panel}`}>
       <div className="panel-head">
-        <span>result · page {page}</span>
+        <span>{t('resultPanel.resultPageHeader', { page })}</span>
         <span className={styles.headRight}>
           <span className="tag tag-indexed">
             <span className="dot" />
-            {outcome.rows.length} row{outcome.rows.length === 1 ? '' : 's'}
+            {t(outcome.rows.length === 1 ? 'resultPanel.rowsOne' : 'resultPanel.rowsMany', {
+              count: outcome.rows.length,
+            })}
           </span>
-          <span className="tag tag-json">{outcome.matchedCount} matched</span>
+          <span className="tag tag-json">
+            {t('resultPanel.matchedTag', { count: outcome.matchedCount })}
+          </span>
         </span>
       </div>
 
       <div className={styles.resultBody}>
         <p className={styles.hint}>
-          The probe considered {outcome.candidateCount} rows of this model,{' '}
-          {outcome.matchedCount} matched, and {outcome.rows.length} were materialised.
-          {' '}
-          <strong>The engine never reports that middle number</strong> — there is no
-          count query and no total; it is on screen here because the simulation can see
-          the whole table and a real read deliberately cannot.
+          {t('resultPanel.probeHint1', {
+            candidates: outcome.candidateCount,
+            matched: outcome.matchedCount,
+            materialised: outcome.rows.length,
+          })}
+          <strong>{t('resultPanel.probeHintBold')}</strong>
+          {t('resultPanel.probeHint2')}
         </p>
 
         <TableView
           name="entry_data"
-          note="the payload, verbatim"
+          note={t('resultPanel.mirrorNote')}
           columns={columns}
           rows={outcome.rows}
           rowKey={row => row.id}
-          empty={
-            <>
-              No rows matched. That is an answer, not a failure — and it is a different
-              thing from the refusals above, which is why this panel looks different
-              when one happens.
-            </>
-          }
+          empty={t('resultPanel.emptyResult')}
         />
 
         <div className={styles.pager}>
@@ -165,7 +164,7 @@ export default function ResultPanel() {
             disabled={draft.cursors.length === 0}
             onClick={() => dispatch({ type: 'query/prevPage' })}
           >
-            ← previous
+            {t('resultPanel.prevButton')}
           </button>
           <button
             type="button"
@@ -173,12 +172,10 @@ export default function ResultPanel() {
             disabled={!outcome.hasMore}
             onClick={() => dispatch({ type: 'query/nextPage' })}
           >
-            next →
+            {t('resultPanel.nextButton')}
           </button>
           <span className={styles.pagerNote}>
-            {outcome.hasMore
-              ? 'the probe asked for pageSize + 1 rows and got them, so there is another page'
-              : 'the probe came back short of pageSize + 1, so this is the last page'}
+            {t(outcome.hasMore ? 'resultPanel.hasMoreNote' : 'resultPanel.lastPageNote')}
           </span>
         </div>
 
@@ -200,28 +197,33 @@ export default function ResultPanel() {
  */
 function CursorReadout({ token }: { token: string }) {
   const decoded = decodeCursor(token);
+  const t = useTranslations('playground');
 
   return (
     <div className={styles.cursor}>
-      <span className={styles.cursorLabel}>nextCursor</span>
+      <span className={styles.cursorLabel}>{t('resultPanel.cursorLabel')}</span>
       <code className={styles.cursorToken}>{token}</code>
       {decoded.ok && (
         <span className={styles.cursorPayload}>
           {decoded.payload.sortKeyIdentity === null ? (
             <>
-              <span className="tag tag-json">v1</span> anchor id{' '}
-              <code>{decoded.payload.entryId}</code> — the format that predates sorting,
-              still emitted for an unsorted read so old tokens keep working
+              <span className="tag tag-json">{t('resultPanel.v1Tag')}</span>
+              {t('resultPanel.v1Note1')}
+              <code>{decoded.payload.entryId}</code>
+              {t('resultPanel.v1Note2')}
             </>
           ) : (
             <>
-              <span className="tag tag-accent">v2</span> anchor id{' '}
-              <code>{decoded.payload.entryId}</code>, ordering{' '}
+              <span className="tag tag-accent">{t('resultPanel.v2Tag')}</span>
+              {t('resultPanel.v2Note1')}
+              <code>{decoded.payload.entryId}</code>
+              {t('resultPanel.v2Note2')}
               <code>
                 {decoded.payload.sortKeyIdentity} {decoded.payload.direction}
-              </code>{' '}
-              — the value itself is <em>not</em> in the token; it is resolved from the
-              anchor row at query time, which keeps the token constant-size
+              </code>
+              {t('resultPanel.v2Note3')}
+              <em>{t('resultPanel.v2NoteNot')}</em>
+              {t('resultPanel.v2Note4')}
             </>
           )}
         </span>

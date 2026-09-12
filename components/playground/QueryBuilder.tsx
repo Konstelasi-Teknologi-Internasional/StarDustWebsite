@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useTranslations } from '@/lib/i18n';
 import type { SortDirection, SortTarget } from '@/lib/sim/search/sort';
 import { fieldIndexState, fieldsOf } from '@/lib/sim/world';
 import EventLog from './EventLog';
@@ -38,61 +39,51 @@ export default function QueryBuilder() {
   const models = world.models.filter(m => m.deletedAt === null);
   const fields = draft.modelId === null ? [] : fieldsOf(world, draft.modelId);
   const [addField, setAddField] = useState('');
+  const t = useTranslations('playground');
 
   const firstField = fields[0]?.name ?? '';
   const fieldToAdd = fields.some(f => f.name === addField) ? addField : firstField;
 
   return (
     <section className={styles.section} id="query" aria-labelledby="query-title" tabIndex={-1}>
-      <p className="eyebrow">section e</p>
+      <p className="eyebrow">{t('queryBuilder.eyebrow')}</p>
       <h2 id="query-title" className={styles.title}>
-        Query it
+        {t('queryBuilder.heading')}
       </h2>
-      <p className="section-lede">
-        Build a filter against the schema you defined, over the rows you wrote, using
-        the index the daemons built. Then break it on purpose: filter a field nobody
-        promoted, or hand the decoder JSON it will not take, and read what comes back
-        instead of rows.
-      </p>
+      <p className="section-lede">{t('queryBuilder.lede')}</p>
 
       <div className={styles.beats}>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>Two queries, however many conditions</h3>
+          <h3 className={styles.beatTitle}>{t('queryBuilder.beat1Title')}</h3>
           <p>
-            One bounded probe over the joined pages returns <code>pageSize + 1</code>{' '}
-            ids; one fetch materialises them. Stack five conditions across three pages
-            and it is still two queries and still one row per entry per page — no
-            fan-out, because the values live in columns rather than in rows.
+            {t('queryBuilder.beat1Body1')}
+            <code>pageSize + 1</code>
+            {t('queryBuilder.beat1Body2')}
           </p>
         </div>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>A filter reads the slot, not the JSON</h3>
+          <h3 className={styles.beatTitle}>{t('queryBuilder.beat2Title')}</h3>
           <p>
-            <code>entry_data.fields</code> is the system of record and it is not what a
-            filter touches. A row the backfill has not reached has no row on the page
-            at all, so it matches nothing — <code>is_null</code> included, because that
-            still needs a row to exist. Stop the Reconciler mid-drain and you can watch
-            the two halves of the model answer differently.
+            <code>entry_data.fields</code>
+            {t('queryBuilder.beat2Body1')}
+            <code>is_null</code>
+            {t('queryBuilder.beat2Body2')}
           </p>
         </div>
       </div>
 
       {models.length === 0 ? (
         <div className={`panel ${styles.empty}`}>
-          <p>
-            Define a model in section A first, and write a few rows in section C. This
-            section filters what those two produced; with an empty registry there is
-            nothing to build a condition against.
-          </p>
+          <p>{t('queryBuilder.emptyBody')}</p>
         </div>
       ) : (
         <>
           <div className={`panel ${styles.controls}`}>
             <div className="panel-head">
-              <span>request</span>
+              <span>{t('queryBuilder.requestLabel')}</span>
               <span className={styles.headRight}>
                 <label className={styles.label} htmlFor="query-model">
-                  model
+                  {t('queryBuilder.modelLabel')}
                 </label>
                 <select
                   id="query-model"
@@ -103,7 +94,7 @@ export default function QueryBuilder() {
                   }
                 >
                   <option value="" disabled>
-                    pick one
+                    {t('queryBuilder.pickOne')}
                   </option>
                   {models.map(m => (
                     <option key={m.id} value={m.id}>
@@ -116,15 +107,15 @@ export default function QueryBuilder() {
 
             <div className={styles.controlsBody}>
               {draft.modelId === null ? (
-                <p className={styles.hint}>Pick a model to filter.</p>
+                <p className={styles.hint}>{t('queryBuilder.hintPickModel')}</p>
               ) : (
                 <>
                   <div className={styles.tree}>
                     {draft.tree === null ? (
                       <p className={styles.matchAll}>
-                        No conditions. The envelope omits its <code>filter</code> key
-                        entirely, which is the match-all signal — every non-deleted row of
-                        this model, cursor-paginated.
+                        {t('queryBuilder.matchAllBefore')}
+                        <code>filter</code>
+                        {t('queryBuilder.matchAllAfter')}
                       </p>
                     ) : (
                       <FilterTree node={draft.tree} path={[]} />
@@ -134,14 +125,16 @@ export default function QueryBuilder() {
                   <div className={styles.addRow}>
                     <select
                       className={styles.select}
-                      aria-label="field to add a condition on"
+                      aria-label={t('queryBuilder.addFieldAriaLabel')}
                       value={fieldToAdd}
                       onChange={e => setAddField(e.target.value)}
                     >
                       {fields.map(f => (
                         <option key={f.id} value={f.name}>
                           {f.name} · {f.declaredType}
-                          {fieldIndexState(world, f.id) === 'live' ? '' : ' (not indexed)'}
+                          {fieldIndexState(world, f.id) === 'live'
+                            ? ''
+                            : t('queryBuilder.notIndexedSuffix')}
                         </option>
                       ))}
                     </select>
@@ -153,18 +146,22 @@ export default function QueryBuilder() {
                         dispatch({ type: 'query/addCondition', fieldName: fieldToAdd })
                       }
                     >
-                      + condition
+                      {t('queryBuilder.addConditionButton')}
                     </button>
                     <span className={styles.hint}>
-                      Conditions join with <code>and</code> by default. Use{' '}
-                      <code>or</code> or <code>not</code> on a row to group it — that is
-                      what moves the compiler onto the EXISTS strategy.
+                      {t('queryBuilder.conditionsHint1')}
+                      <code>and</code>
+                      {t('queryBuilder.conditionsHint2')}
+                      <code>or</code>
+                      {t('queryBuilder.conditionsHint3')}
+                      <code>not</code>
+                      {t('queryBuilder.conditionsHint4')}
                     </span>
                   </div>
 
                   <div className={styles.sortRow}>
                     <label className={styles.label} htmlFor="query-sort">
-                      sort
+                      {t('queryBuilder.sortLabel')}
                     </label>
                     <select
                       id="query-sort"
@@ -189,14 +186,14 @@ export default function QueryBuilder() {
                       <option value="created_at">entry_data.created_at</option>
                       {fields.map(f => (
                         <option key={f.id} value={`field:${f.name}`}>
-                          {f.name} (slot column)
+                          {f.name}{t('queryBuilder.slotColumnSuffix')}
                         </option>
                       ))}
                     </select>
 
                     <select
                       className={styles.select}
-                      aria-label="sort direction"
+                      aria-label={t('queryBuilder.sortDirectionAriaLabel')}
                       value={draft.sortDirection}
                       onChange={e =>
                         dispatch({
@@ -207,12 +204,12 @@ export default function QueryBuilder() {
                         })
                       }
                     >
-                      <option value="asc">ascending</option>
-                      <option value="desc">descending</option>
+                      <option value="asc">{t('queryBuilder.ascending')}</option>
+                      <option value="desc">{t('queryBuilder.descending')}</option>
                     </select>
 
                     <label className={styles.label} htmlFor="query-page-size">
-                      pageSize
+                      {t('queryBuilder.pageSizeLabel')}
                     </label>
                     <input
                       id="query-page-size"
@@ -236,22 +233,21 @@ export default function QueryBuilder() {
                       className="btn"
                       onClick={() => dispatch({ type: 'query/reset' })}
                     >
-                      clear
+                      {t('queryBuilder.clearButton')}
                     </button>
                     <button
                       type="button"
                       className="btn btn-primary"
                       onClick={() => dispatch({ type: 'query/run' })}
                     >
-                      run
+                      {t('queryBuilder.runButton')}
                     </button>
                   </div>
 
                   <p className={styles.sortNote}>
-                    Sorting is <strong>not part of the wire format</strong> — it is a
-                    parameter alongside the filter, which is why it is up here and not in
-                    the JSON below. The two intrinsic targets stay index-ordered; a sort on
-                    a field is an honest filesort over the whole filtered set.
+                    {t('queryBuilder.sortNote1')}
+                    <strong>{t('queryBuilder.sortNoteBold')}</strong>
+                    {t('queryBuilder.sortNote2')}
                   </p>
                 </>
               )}
@@ -268,14 +264,16 @@ export default function QueryBuilder() {
               <EventLog
                 events={world.events}
                 sources={['api']}
-                title="what the API logged"
+                title={t('queryBuilder.apiLogTitle')}
                 note="source=api"
                 height="200px"
                 empty={
                   <>
-                    Nothing yet. A search logs one <code>search_request</code> line; a
-                    refusal logs <code>pre_flight_rejected</code> with the reason instead,
-                    and never both.
+                    {t('queryBuilder.apiLogEmpty1')}
+                    <code>search_request</code>
+                    {t('queryBuilder.apiLogEmpty2')}
+                    <code>pre_flight_rejected</code>
+                    {t('queryBuilder.apiLogEmpty3')}
                   </>
                 }
               />

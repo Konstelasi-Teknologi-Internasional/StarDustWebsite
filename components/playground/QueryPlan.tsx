@@ -1,6 +1,7 @@
 'use client';
 
 import CodeBlock from '@/components/CodeBlock';
+import { useTranslations } from '@/lib/i18n';
 import { searchSnippet } from '@/lib/sim/php';
 import type { QueryDraft } from '@/lib/sim/query';
 import { describeSort, type SortSpec } from '@/lib/sim/search/sort';
@@ -25,6 +26,7 @@ export default function QueryPlan() {
   const { world } = usePlayground();
   const draft = world.queryDraft;
   const run = draft.lastRun;
+  const t = useTranslations('playground');
 
   if (run?.outcome == null) return null;
   const { outcome } = run;
@@ -32,13 +34,13 @@ export default function QueryPlan() {
   return (
     <div className={`panel ${styles.panel}`}>
       <div className="panel-head">
-        <span>the plan</span>
+        <span>{t('queryPlan.planLabel')}</span>
         <span className={styles.headRight}>
           <span className={`tag ${outcome.strategy === 'joins' ? 'tag-indexed' : 'tag-accent'}`}>
             <span className="dot" />
-            {outcome.strategy} strategy
+            {t('queryPlan.strategyTag', { strategy: outcome.strategy })}
           </span>
-          <span className="tag tag-json">2 queries</span>
+          <span className="tag tag-json">{t('queryPlan.queriesTag')}</span>
         </span>
       </div>
 
@@ -46,32 +48,34 @@ export default function QueryPlan() {
         <p className={styles.hint}>
           {outcome.strategy === 'joins' ? (
             <>
-              A pure-<code>AND</code> tree, so the compiler joins one{' '}
-              <code>entry_slots_page_N</code> per distinct page and ANDs the predicates
-              in the outer <code>WHERE</code>. That is the shape the composite index was
-              built for.
+              {t('queryPlan.joinsExplanation1')}
+              <code>AND</code>
+              {t('queryPlan.joinsExplanation2')}
+              <code>entry_slots_page_N</code>
+              {t('queryPlan.joinsExplanation3')}
+              <code>WHERE</code>
+              {t('queryPlan.joinsExplanation4')}
             </>
           ) : (
             <>
-              The tree contains an <code>OR</code> or a <code>NOT</code>, so every leaf
-              becomes an <code>EXISTS</code> subquery composed with native SQL. Each one
-              still hits the composite index on its own page.
+              {t('queryPlan.existsExplanation1')}
+              <code>OR</code>
+              {t('queryPlan.existsExplanation2')}
+              <code>NOT</code>
+              {t('queryPlan.existsExplanation3')}
+              <code>EXISTS</code>
+              {t('queryPlan.existsExplanation4')}
             </>
           )}{' '}
-          Ordered by <code>{describeSort(sortOf(draft))}</code>
-          {draft.sortTarget === 'field' && (
-            <>
-              {' '}
-              — a slot column on a joined page, which means a real filesort over the
-              whole filtered set. Bounded materialisation, unbounded discovery: the two
-              intrinsic targets stay index-ordered and this one does not.
-            </>
-          )}
+          {t('queryPlan.orderedByPrefix')}
+          <code>{describeSort(sortOf(draft))}</code>
+          {draft.sortTarget === 'field' && <>{t('queryPlan.fieldSortSuffix')}</>}
         </p>
 
-        <CodeBlock code={format(outcome.probe.sql)} lang="sql" title="query 1 · bounded probe" />
+        <CodeBlock code={format(outcome.probe.sql)} lang="sql" title={t('queryPlan.probeTitle')} />
         <p className={styles.bindings}>
-          bindings: <code>{outcome.probe.bindings.map(renderBinding).join(', ')}</code>
+          {t('queryPlan.bindingsPrefix')}
+          <code>{outcome.probe.bindings.map(renderBinding).join(', ')}</code>
         </p>
 
         {outcome.fetch !== null && (
@@ -79,11 +83,13 @@ export default function QueryPlan() {
             <CodeBlock
               code={format(outcome.fetch.sql)}
               lang="sql"
-              title="query 2 · materialise the page"
+              title={t('queryPlan.fetchTitle')}
             />
             <p className={styles.bindings}>
-              {outcome.probeIds.length} id{outcome.probeIds.length === 1 ? '' : 's'} came back
-              from the probe{outcome.hasMore ? ' — one more than the page, which is the entire has-more protocol' : ''}.
+              {t(outcome.probeIds.length === 1 ? 'queryPlan.probeIdsOne' : 'queryPlan.probeIdsMany', {
+                count: outcome.probeIds.length,
+              })}
+              {t(outcome.hasMore ? 'queryPlan.hasMoreSuffix' : 'queryPlan.noMoreSuffix')}
             </p>
           </>
         )}
@@ -99,7 +105,7 @@ export default function QueryPlan() {
             draft.cursors.length > 0,
           )}
           lang="php"
-          title="the call"
+          title={t('queryPlan.callTitle')}
           copyable
         />
       </div>

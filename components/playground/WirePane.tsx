@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import CodeBlock from '@/components/CodeBlock';
+import { useTranslations } from '@/lib/i18n';
 import { encodeEnvelope } from '@/lib/sim/filter/encode';
 import { filterAstSnippetFull } from '@/lib/sim/php';
 import { usePlayground } from './PlaygroundContext';
@@ -27,6 +28,7 @@ export default function WirePane() {
   const { world, dispatch } = usePlayground();
   const draft = world.queryDraft;
   const [view, setView] = useState<'json' | 'ast'>('json');
+  const t = useTranslations('playground');
 
   const text = draft.wireText ?? encodeEnvelope(draft.tree);
   // A run can fail on text that has since been edited back to valid, so the
@@ -36,7 +38,11 @@ export default function WirePane() {
   return (
     <div className={`panel ${styles.panel}`}>
       <div className="panel-head">
-        <span>queryfilter · {view === 'json' ? 'wire format' : 'decoded AST'}</span>
+        <span>
+          {t('wirePane.viewLabel', {
+            view: view === 'json' ? t('wirePane.wireFormatView') : t('wirePane.astView'),
+          })}
+        </span>
         <span className={styles.headRight}>
           <button
             type="button"
@@ -44,7 +50,7 @@ export default function WirePane() {
             aria-pressed={view === 'json'}
             onClick={() => setView('json')}
           >
-            JSON
+            {t('wirePane.jsonButton')}
           </button>
           <button
             type="button"
@@ -52,16 +58,16 @@ export default function WirePane() {
             aria-pressed={view === 'ast'}
             onClick={() => setView('ast')}
           >
-            PHP AST
+            {t('wirePane.astButton')}
           </button>
           {draft.wireText !== null && view === 'json' && (
             <button
               type="button"
               className={styles.iconBtn}
               onClick={() => dispatch({ type: 'query/syncWire' })}
-              title="Discard the hand-edited text and re-derive it from the builder"
+              title={t('wirePane.rederiveTitle')}
             >
-              re-derive
+              {t('wirePane.rederiveButton')}
             </button>
           )}
         </span>
@@ -77,15 +83,19 @@ export default function WirePane() {
           <CodeBlock
             code={filterAstSnippetFull(draft.tree)}
             lang="php"
-            title="what JsonFilterDecoder::decode() returns"
+            title={t('wirePane.astTitle')}
             copyable
           />
           <p className={styles.hint}>
-            The tree the decoder produces, before pre-flight touches it. Each{' '}
-            <code>FieldRef</code> here carries only the two names the wire format
-            sent; resolution adds the <code>modelId</code>, <code>fieldId</code> and
-            descriptor, which is the step that can fail with{' '}
-            <code>field_unknown</code>.
+            {t('wirePane.astHint1')}
+            <code>FieldRef</code>
+            {t('wirePane.astHint2')}
+            <code>modelId</code>
+            {t('wirePane.astHint3')}
+            <code>fieldId</code>
+            {t('wirePane.astHint4')}
+            <code>field_unknown</code>
+            {t('wirePane.astHint5')}
           </p>
         </div>
       ) : (
@@ -94,16 +104,16 @@ export default function WirePane() {
           className={styles.wire}
           value={text}
           spellCheck={false}
-          aria-label="QueryFilter wire format"
+          aria-label={t('wirePane.wireAriaLabel')}
           rows={Math.min(24, Math.max(6, text.split('\n').length + 1))}
           onChange={e => dispatch({ type: 'query/setWireText', text: e.target.value })}
         />
 
         {error === null ? (
           <p className={styles.wireOk}>
-            Decodes. The engine&rsquo;s <code>JsonFilterDecoder</code> accepts this
-            envelope, and running the query decodes this exact text — not the builder
-            above it.
+            {t('wirePane.decodesNote1')}
+            <code>JsonFilterDecoder</code>
+            {t('wirePane.decodesNote2')}
           </p>
         ) : (
           <div className={styles.wireError} role="status">
@@ -112,17 +122,24 @@ export default function WirePane() {
               {error.errorCode}
             </span>
             <code className={styles.pointer}>
-              {error.jsonPointer === '' ? '(whole envelope)' : error.jsonPointer}
+              {error.jsonPointer === '' ? t('wirePane.wholeEnvelope') : error.jsonPointer}
             </code>
+            {/* Simulates the message a real decoder rejection would carry —
+                untranslated in both locales, same fidelity rule as `draft.error`. */}
             <p>{error.message}</p>
           </div>
         )}
 
         <p className={styles.hint}>
-          The <code>filter</code> key is <strong>omitted</strong> for match-all, never
-          set to <code>null</code> — sending <code>null</code> is the one shape the
-          decoder singles out, on the grounds that a caller who meant everything had a
-          way to say so.
+          {t('wirePane.filterKeyHint1')}
+          <code>filter</code>
+          {t('wirePane.filterKeyHint2')}
+          <strong>{t('wirePane.filterKeyHintOmitted')}</strong>
+          {t('wirePane.filterKeyHint3')}
+          <code>null</code>
+          {t('wirePane.filterKeyHint4')}
+          <code>null</code>
+          {t('wirePane.filterKeyHint5')}
         </p>
       </div>
       )}
