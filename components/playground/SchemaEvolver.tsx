@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import CodeBlock from '@/components/CodeBlock';
+import { useTranslations } from '@/lib/i18n';
 import { isCategoricallyRejected } from '@/lib/sim/backfill';
 import { checkpointFor } from '@/lib/sim/checkpoints';
 import { fieldPurgeCheckpoint, runningModelPurge } from '@/lib/sim/delete';
@@ -57,48 +58,38 @@ const OWNED_ACTIONS = new Set<LifecycleOutcome['action']>([
  */
 export default function SchemaEvolver() {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   return (
     <section className={styles.section} id="evolve" aria-labelledby="evolve-title" tabIndex={-1}>
-      <p className="eyebrow">section f</p>
+      <p className="eyebrow">{t('schemaEvolver.eyebrow')}</p>
       <h2 id="evolve-title" className={styles.title}>
-        Change the schema while it is live
+        {t('schemaEvolver.heading')}
       </h2>
-      <p className="section-lede">
-        Renaming a field is not a registry update — it is a rewrite of every row in
-        the model, because the payload is keyed by name. Stop the Reconciler first
-        and you can stand inside the migration and look around.
-      </p>
+      <p className="section-lede">{t('schemaEvolver.lede')}</p>
 
       <div className={styles.beats}>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>A window, not an instant</h3>
+          <h3 className={styles.beatTitle}>{t('schemaEvolver.beat1Title')}</h3>
           <p>
-            The registry flips the moment the call returns. Every payload written
-            before that is still keyed by the old name, and stays that way until the
-            backfill reaches it. The engine&rsquo;s job is not to hide that — it is to
-            make every surface answer correctly <em>during</em> it.
+            {t('schemaEvolver.beat1Body1')}
+            <em>{t('schemaEvolver.beat1During')}</em>
+            {t('schemaEvolver.beat1Body2')}
           </p>
         </div>
         <div className={styles.beat}>
-          <h3 className={styles.beatTitle}>Reads bridge it; filters do not</h3>
+          <h3 className={styles.beatTitle}>{t('schemaEvolver.beat2Title')}</h3>
           <p>
-            A read falls back from the new key to the old one, and a write is
-            rewritten onto the new name before it is stored. A <em>filter</em> naming
-            the old field is refused outright. That asymmetry is deliberate: a
-            refused filter loses nothing and says so immediately, and a mis-keyed
-            write loses data silently.
+            {t('schemaEvolver.beat2Body1')}
+            <em>{t('schemaEvolver.beat2Filter')}</em>
+            {t('schemaEvolver.beat2Body2')}
           </p>
         </div>
       </div>
 
       {world.models.length === 0 ? (
         <div className={`panel ${styles.empty}`}>
-          <p>
-            Nothing to change yet. Define a model in section A and write some rows in
-            section C — a rename over an empty model completes on the Reconciler&rsquo;s
-            first tick, which is correct and shows you nothing.
-          </p>
+          <p>{t('schemaEvolver.emptyBody')}</p>
         </div>
       ) : (
         <div className={styles.stack}>
@@ -112,6 +103,8 @@ export default function SchemaEvolver() {
           owns the four schema-change lifecycles, and section D owns promote and
           demote. One slot on the world, six writers, so each renderer says
           which of them it speaks for. */}
+      {/* Simulates the message a real lifecycle exception would carry —
+          untranslated in both locales, same fidelity rule as `draft.error`. */}
       {world.lastLifecycle?.error != null && OWNED_ACTIONS.has(world.lastLifecycle.action) && (
         <p className={styles.error} role="status">
           {world.lastLifecycle.error}
@@ -141,17 +134,17 @@ export default function SchemaEvolver() {
           events={world.events}
           sources={['registry']}
           height="260px"
-          title="the registry's own lines"
-          note="NDJSON · source=registry"
-          empty="Nothing has changed the schema yet. Rename, retype or delete a field above and the transition appears here — the drain that carries it out is in the daemon room's stream."
+          title={t('schemaEvolver.logTitle')}
+          note={t('schemaEvolver.logNote')}
+          empty={t('schemaEvolver.logEmpty')}
         />
       </div>
 
       {world.lastLifecycle?.noop === true && OWNED_ACTIONS.has(world.lastLifecycle.action) && (
         <p className={styles.noop} role="status">
-          That call returned <code>false</code> — nothing to do. The engine reports an
-          unknown id, another tenant&rsquo;s, and a deletion already in flight the same
-          way, which is what makes a repeated delete idempotent.
+          {t('schemaEvolver.noopBody1')}
+          <code>false</code>
+          {t('schemaEvolver.noopBody2')}
         </p>
       )}
     </section>
@@ -161,6 +154,7 @@ export default function SchemaEvolver() {
 function ModelPanel({ model }: { model: SimModel }) {
   const { world, dispatch } = usePlayground();
   const fields = fieldsOf(world, model.id);
+  const t = useTranslations('playground');
 
   const purging = runningModelPurge(world, model.id);
   const remaining = world.entries.filter(
@@ -176,31 +170,29 @@ function ModelPanel({ model }: { model: SimModel }) {
           </span>
           <span className="tag tag-error">
             <span className="dot" />
-            deleted_at set · purging
+            {t('schemaEvolver.purgingTag')}
           </span>
         </div>
 
         <div className={styles.window}>
           <div className={styles.windowCounts}>
             <span className={styles.count}>
-              <strong>{remaining}</strong> rows left to destroy
+              <strong>{remaining}</strong> {t('schemaEvolver.rowsLeftToDestroy')}
             </span>
             <span className={styles.count}>
-              <strong>{fields.length}</strong> fields still visible to this panel
+              <strong>{fields.length}</strong> {t('schemaEvolver.fieldsStillVisible')}
             </span>
           </div>
           <CheckpointBar
             checkpoint={purging}
             total={remaining}
-            totalNote="of the rows still in entry_data — this partition shrinks as it is walked, unlike every other drain on this page, because the chunks delete what they claim"
+            totalNote={t('schemaEvolver.modelPurgeTotalNote')}
           />
           <p className={styles.footnote}>
-            <strong>The model has gone dark.</strong> A read returns nothing — not an
-            error, nothing, exactly as for a model that never existed — and a write is{' '}
-            <em>refused</em> rather than having its keys stripped. That is the deliberate
-            inversion of the field rule: a deleted field leaves a valid residual entry
-            and a deleted model leaves nothing to preserve. The final chunk drops the
-            model row and cascades every field row away with it.
+            <strong>{t('schemaEvolver.modelDarkBold')}</strong>
+            {t('schemaEvolver.modelDarkBody1')}
+            <em>{t('schemaEvolver.modelDarkRefused')}</em>
+            {t('schemaEvolver.modelDarkBody2')}
           </p>
         </div>
       </div>
@@ -213,30 +205,35 @@ function ModelPanel({ model }: { model: SimModel }) {
         <span>
           {model.name} · model {model.id}
         </span>
-        <span className="tag tag-json">tenant {world.tenantId}</span>
+        <span className="tag tag-json">
+          {t('schemaEvolver.modelTenantTag', { tenantId: world.tenantId })}
+        </span>
       </div>
 
       <div className={styles.modelRename}>
         <RenameControl
-          label="rename the model"
+          label={t('schemaEvolver.renameModelLabel')}
           current={model.name}
-          hint="One UPDATE. Complete on return — no checkpoint, no window, and deliberately no schema-version bump."
+          hint={t('schemaEvolver.renameModelHint')}
           onSubmit={name => dispatch({ type: 'model/rename', modelId: model.id, name })}
         />
         <p className={styles.footnote}>
-          Watch what does <strong>not</strong> happen: no row appears in{' '}
-          <code>backfill_checkpoints</code> and <code>stardust_schema_version</code>{' '}
-          does not move. Nothing cached holds a model name, so there is nothing to
-          invalidate. The one real consequence is a footgun the engine keeps on
-          purpose — <code>createModel()</code> is get-or-create keyed on the name, so
-          a seed script still naming the old model makes a second one.
+          {t('schemaEvolver.renameModelFootnote1')}
+          <strong>{t('schemaEvolver.renameModelFootnoteNot')}</strong>
+          {t('schemaEvolver.renameModelFootnote2')}
+          <code>backfill_checkpoints</code>
+          {t('schemaEvolver.renameModelFootnote3')}
+          <code>stardust_schema_version</code>
+          {t('schemaEvolver.renameModelFootnote4')}
+          <code>createModel()</code>
+          {t('schemaEvolver.renameModelFootnote5')}
         </p>
         {/* Shown next to the field snippet further down on purpose: two calls
             with the same shape, one of which is a migration and one of which is
             a label change. */}
         <CodeBlock
           lang="php"
-          title="what this button calls"
+          title={t('schemaEvolver.callTitle')}
           code={renameModelSnippet(world.tenantId, model.id, model.name, model.name)}
         />
       </div>
@@ -258,22 +255,23 @@ function ModelPanel({ model }: { model: SimModel }) {
 
       <div className={`${styles.danger} ${styles.modelDanger}`}>
         <DangerButton
-          label="delete this model"
-          confirm={`destroy ${remaining} rows?`}
+          label={t('schemaEvolver.deleteModelLabel')}
+          confirm={t('schemaEvolver.deleteModelConfirm', { count: remaining })}
           onConfirm={() => dispatch({ type: 'model/delete', modelId: model.id })}
         />
         <p className={styles.footnote}>
-          <strong>This is the only operation in the engine that physically removes{' '}
-          <code>entry_data</code> rows, and there is no undelete.</strong> Severance is
-          one transaction — the model and every field it owns are marked at once, which
-          is what makes every existing field guard fire with no new conditions. The
-          rows themselves go in chunks, along with their{' '}
-          <code>stardust_sync_queue</code> entries, and the model row is dropped by the
-          final chunk.
+          <strong>
+            {t('schemaEvolver.deleteModelFootnoteBold1')}
+            <code>entry_data</code>
+            {t('schemaEvolver.deleteModelFootnoteBold2')}
+          </strong>
+          {t('schemaEvolver.deleteModelFootnote1')}
+          <code>stardust_sync_queue</code>
+          {t('schemaEvolver.deleteModelFootnote2')}
         </p>
         <CodeBlock
           lang="php"
-          title="what this button calls"
+          title={t('schemaEvolver.callTitle')}
           code={deleteModelSnippet(world.tenantId, model.id, model.name)}
         />
       </div>
@@ -283,6 +281,7 @@ function ModelPanel({ model }: { model: SimModel }) {
 
 function FieldRow({ field, model }: { field: SimField; model: SimModel }) {
   const { world, dispatch } = usePlayground();
+  const t = useTranslations('playground');
 
   const renaming = checkpointFor(world, 'rename', field.id);
   const inFlight = renaming?.status === 'running' && field.previousName !== null;
@@ -314,21 +313,21 @@ function FieldRow({ field, model }: { field: SimField; model: SimModel }) {
         {field.previousName !== null && (
           <span className="tag tag-pending">
             <span className="dot" />
-            previous_name = {field.previousName}
+            {t('schemaEvolver.previousNameTag', { name: field.previousName })}
           </span>
         )}
       </div>
 
       <RenameControl
-        label="rename the field"
+        label={t('schemaEvolver.renameFieldLabel')}
         current={field.name}
         disabled={inFlight || retyping !== undefined}
         hint={
           inFlight
-            ? 'A rename is already draining for this field. The engine refuses an overlapping lifecycle rather than queueing it.'
+            ? t('schemaEvolver.renameInFlightHint')
             : retyping !== undefined
-              ? 'A retype is in flight. Its backfill locates values by name, so a rename underneath it would write NULL slots silently.'
-              : 'Returns as soon as the registry commits. The payload rewrite needs a running Reconciler.'
+              ? t('schemaEvolver.retypeInFlightHint')
+              : t('schemaEvolver.renameReadyHint')
         }
         onSubmit={name => dispatch({ type: 'field/rename', fieldId: field.id, name })}
       />
@@ -337,24 +336,26 @@ function FieldRow({ field, model }: { field: SimField; model: SimModel }) {
         <div className={styles.window}>
           <div className={styles.windowCounts}>
             <span className={styles.count}>
-              <strong>{migrated}</strong> rewritten to <code>{field.name}</code>
+              <strong>{migrated}</strong> {t('schemaEvolver.rewrittenTo', { name: field.name })}
             </span>
             <span className={styles.count}>
-              <strong>{stale}</strong> still stored as <code>{field.previousName}</code>
+              <strong>{stale}</strong>{' '}
+              {t('schemaEvolver.stillStoredAs', { name: field.previousName })}
             </span>
           </div>
           <CheckpointBar
             checkpoint={renaming}
             total={entriesInModel}
-            totalNote={`of ${entriesInModel} rows in entry_data for this model — backfill_checkpoints stores a cursor and a status and no total, so this is counted from the partition being drained`}
+            totalNote={t('schemaEvolver.renameTotalNote', { total: entriesInModel })}
           />
           <p className={styles.footnote}>
-            A read right now returns every one of those {entriesInModel} rows under{' '}
-            <code>{field.name}</code>. The {stale} that are still stored as{' '}
-            <code>{field.previousName}</code> resolve through the fallback — which is
-            the only reason the window is survivable. A filter naming{' '}
-            <code>{field.previousName}</code>, by contrast, is refused as an unknown
-            field: as far as the registry is concerned it no longer exists.
+            {t('schemaEvolver.renameWindowFootnote1', { total: entriesInModel })}
+            <code>{field.name}</code>
+            {t('schemaEvolver.renameWindowFootnote2', { stale })}
+            <code>{field.previousName}</code>
+            {t('schemaEvolver.renameWindowFootnote3')}
+            <code>{field.previousName}</code>
+            {t('schemaEvolver.renameWindowFootnote4')}
           </p>
         </div>
       )}
@@ -363,16 +364,17 @@ function FieldRow({ field, model }: { field: SimField; model: SimModel }) {
 
       <div className={styles.danger}>
         <DangerButton
-          label={`delete ${field.name}`}
-          confirm="delete permanently?"
+          label={t('schemaEvolver.deleteFieldLabel', { name: field.name })}
+          confirm={t('schemaEvolver.deleteFieldConfirm')}
           disabled={inFlight || retyping !== undefined}
           onConfirm={() => dispatch({ type: 'field/delete', fieldId: field.id })}
         />
         <p className={styles.footnote}>
-          Severs from every surface in one commit and purges the payloads
-          asynchronously. Its name is <strong>not reusable</strong> until the purge
-          lands — <code>ux_fields_model_name</code> is unconditional, so the dying row
-          still holds it.
+          {t('schemaEvolver.deleteFieldFootnote1')}
+          <strong>{t('schemaEvolver.deleteFieldNotReusable')}</strong>
+          {t('schemaEvolver.deleteFieldFootnote2')}
+          <code>ux_fields_model_name</code>
+          {t('schemaEvolver.deleteFieldFootnote3')}
         </p>
       </div>
 
@@ -384,7 +386,7 @@ function FieldRow({ field, model }: { field: SimField; model: SimModel }) {
           call, because then the interesting thing is not the menu. */}
       <CodeBlock
         lang="php"
-        title={inFlight ? 'in flight' : 'what this row can call'}
+        title={inFlight ? t('schemaEvolver.inFlightTitle') : t('schemaEvolver.whatRowCanCall')}
         code={
           inFlight
             ? renameFieldSnippet(
@@ -427,10 +429,11 @@ function FieldRow({ field, model }: { field: SimField; model: SimModel }) {
  */
 function RetypeControl({ field, disabled }: { field: SimField; disabled: boolean }) {
   const { dispatch } = usePlayground();
+  const t = useTranslations('playground');
 
   return (
     <div className={styles.retype}>
-      <span className={styles.controlLabelInline}>retype to</span>
+      <span className={styles.controlLabelInline}>{t('schemaEvolver.retypeToLabel')}</span>
       <div className={styles.types}>
         {DECLARED_TYPES.map(type => {
           const rejected = isCategoricallyRejected(field.declaredType, type);
@@ -446,10 +449,10 @@ function RetypeControl({ field, disabled }: { field: SimField; disabled: boolean
               }
               title={
                 current
-                  ? 'Already this type.'
+                  ? t('schemaEvolver.alreadyThisType')
                   : rejected
-                    ? `${field.declaredType} → ${type} is categorically refused: there is no defensible epoch convention to pick between seconds, milliseconds and a packed date.`
-                    : `retypeField() — overwrites declared_type now and rewrites every value through the ${field.declaredType} → ${type} cell of the matrix.`
+                    ? t('schemaEvolver.retypeRejectedTitle', { from: field.declaredType, to: type })
+                    : t('schemaEvolver.retypeAllowedTitle', { from: field.declaredType, to: type })
               }
             >
               {type}
@@ -458,12 +461,19 @@ function RetypeControl({ field, disabled }: { field: SimField; disabled: boolean
         })}
       </div>
       <span className={styles.hint}>
-        The old slot is tombstoned and a replacement is reserved from the{' '}
-        <strong>new</strong> family — so a retype across families needs the Watcher to
-        provision a page it has no indexed column on yet. Values that will not convert
-        are written <code>NULL</code> with an audited reason rather than rounded or
-        truncated: <code>2.5</code> becoming an <code>int</code> is a{' '}
-        <code>coercion_null</code>, not a <code>2</code>.
+        {t('schemaEvolver.retypeHint1')}
+        <strong>{t('schemaEvolver.retypeHintNew')}</strong>
+        {t('schemaEvolver.retypeHint2')}
+        <code>NULL</code>
+        {t('schemaEvolver.retypeHint3')}
+        <code>2.5</code>
+        {t('schemaEvolver.retypeHint4')}
+        <code>int</code>
+        {t('schemaEvolver.retypeHint5')}
+        <code>coercion_null</code>
+        {t('schemaEvolver.retypeHint6')}
+        <code>2</code>
+        {t('schemaEvolver.retypeHint7')}
       </span>
     </div>
   );
@@ -494,6 +504,7 @@ function firstAllowedTarget(from: DeclaredType): DeclaredType {
  */
 function PurgingFieldRow({ field }: { field: SimField }) {
   const { world } = usePlayground();
+  const t = useTranslations('playground');
 
   const checkpoint = fieldPurgeCheckpoint(world, field.id);
   if (checkpoint === undefined || checkpoint.status !== 'running') return null;
@@ -514,29 +525,29 @@ function PurgingFieldRow({ field }: { field: SimField }) {
         </span>
         <span className="tag tag-error">
           <span className="dot" />
-          deleted_at set · purging
+          {t('schemaEvolver.purgingTag')}
         </span>
       </div>
 
       <div className={styles.window}>
         <div className={styles.windowCounts}>
           <span className={styles.count}>
-            <strong>{residual}</strong> payloads still carrying the key
+            <strong>{residual}</strong> {t('schemaEvolver.purgingPayloadsStillCarrying')}
           </span>
         </div>
         <CheckpointBar
           checkpoint={checkpoint}
           total={total}
-          totalNote={`of ${total} rows in entry_data for this model`}
+          totalNote={t('schemaEvolver.purgingTotalNote', { total })}
         />
         <p className={styles.footnote}>
-          It is already gone from reads, filters, exports and{' '}
-          <code>describeModel()</code> — and a write still sending the key has it
-          silently <strong>stripped</strong> rather than refused, which is what bounds
-          the purge. An unregistered key would otherwise be preserved verbatim, so a
-          client that had not redeployed would keep writing the field back into rows
-          the cursor had already passed. Look at <code>entry_data</code> in the table
-          inspector: the values are visibly still there.
+          {t('schemaEvolver.purgingFootnote1')}
+          <code>describeModel()</code>
+          {t('schemaEvolver.purgingFootnote2')}
+          <strong>{t('schemaEvolver.purgingFootnoteStripped')}</strong>
+          {t('schemaEvolver.purgingFootnote3')}
+          <code>entry_data</code>
+          {t('schemaEvolver.purgingFootnote4')}
         </p>
       </div>
     </div>
@@ -610,6 +621,7 @@ function RenameControl({
   onSubmit: (name: string) => void;
 }) {
   const [value, setValue] = useState('');
+  const t = useTranslations('playground');
 
   const submit = () => {
     const next = value.trim();
@@ -636,7 +648,7 @@ function RenameControl({
         />
       </label>
       <button type="button" className="btn" onClick={submit} disabled={disabled} title={hint}>
-        rename
+        {t('schemaEvolver.renameButton')}
       </button>
       <span className={styles.hint}>{hint}</span>
     </div>
